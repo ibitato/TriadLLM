@@ -52,9 +52,9 @@ Typical steps:
 Example:
 
 ```bash
-git tag -a v0.1.0 -m "TriadLLM v0.1.0"
-git push origin v0.1.0
-gh release create v0.1.0 --title "TriadLLM v0.1.0" --notes-file RELEASE_NOTES.md
+git tag -a v0.1.1 -m "TriadLLM v0.1.1"
+git push origin v0.1.1
+gh release create v0.1.1 --title "TriadLLM v0.1.1" --notes-file RELEASE_NOTES.md
 ```
 
 ## Release Notes Content

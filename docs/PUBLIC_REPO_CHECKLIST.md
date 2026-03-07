@@ -17,8 +17,8 @@ These items are already configured in the repository:
 - issue templates
 - pull request template
 - GitHub Actions CI
-- release tag `v0.1.0`
-- GitHub release for `v0.1.0`
+- release tag `v0.1.1`
+- GitHub release for `v0.1.1`
 
 The GitHub community profile is currently at `100%`.
 
