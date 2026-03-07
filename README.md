@@ -1,7 +1,7 @@
 # TriadLLM
 
 <p align="center">
-  <img src="./docs/assets/triadllm-logo.svg" alt="TriadLLM logo" width="920">
+  <img src="./docs/assets/triadllm-logo-wordmark.svg" alt="TriadLLM logo" width="920">
 </p>
 
 [![Python 3.13+](https://img.shields.io/badge/python-3.13%2B-306998.svg)](https://www.python.org/)
