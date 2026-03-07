@@ -127,6 +127,13 @@ These slash commands update runtime settings during a session:
 
 Changes are persisted back to `settings.json`.
 
+Keyboard controls for the composer:
+
+- `Enter` sends the current draft
+- `Ctrl+J` inserts a newline in the bottom composer
+- `Ctrl+E` opens the expanded composer modal
+- in the expanded composer, `Ctrl+S` sends and `Esc` cancels
+
 ## Migration From `MultiBrainLLM`
 
 On first launch, `TriadLLM` automatically copies legacy files forward if the new files do not exist yet:

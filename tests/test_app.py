@@ -6,9 +6,9 @@ from pathlib import Path
 
 import pytest
 from pydantic import BaseModel
-from textual.widgets import Button
+from textual.widgets import Button, TextArea
 
-from triadllm.app import TriadApp, PermissionScreen
+from triadllm.app import ComposerArea, EditorScreen, PermissionScreen, TriadApp
 from triadllm.config import ConfigManager
 from triadllm.domain import (
     AgentActionKind,
@@ -170,6 +170,58 @@ async def test_app_starts_new_conversation(tmp_path: Path) -> None:
 
 
 @pytest.mark.anyio
+async def test_composer_ctrl_j_inserts_newline(tmp_path: Path) -> None:
+    manager = ConfigManager(root=tmp_path)
+    translator = Translator("en")
+    logger = logging.getLogger("test-app-composer-newline")
+    logger.handlers.clear()
+    logger.addHandler(logging.NullHandler())
+    runtime = TriadRuntime(
+        config_manager=manager,
+        settings=UserSettings(language="en"),
+        profiles={},
+        translator=translator,
+        model_gateway=IdleGateway(),
+        tool_broker=ToolBroker(workspace=tmp_path),
+        logger=logger,
+    )
+    app = TriadApp(runtime=runtime, translator=translator, config_manager=manager)
+
+    async with app.run_test() as pilot:
+        composer = app.query_one("#composer", ComposerArea)
+        composer.focus()
+        await pilot.press("h", "i", "ctrl+j", "t", "h", "e", "r", "e")
+        assert composer.text == "hi\nthere"
+
+
+@pytest.mark.anyio
+async def test_composer_ctrl_e_opens_expanded_editor(tmp_path: Path) -> None:
+    manager = ConfigManager(root=tmp_path)
+    translator = Translator("en")
+    logger = logging.getLogger("test-app-composer-expand")
+    logger.handlers.clear()
+    logger.addHandler(logging.NullHandler())
+    runtime = TriadRuntime(
+        config_manager=manager,
+        settings=UserSettings(language="en"),
+        profiles={},
+        translator=translator,
+        model_gateway=IdleGateway(),
+        tool_broker=ToolBroker(workspace=tmp_path),
+        logger=logger,
+    )
+    app = TriadApp(runtime=runtime, translator=translator, config_manager=manager)
+
+    async with app.run_test() as pilot:
+        composer = app.query_one("#composer", ComposerArea)
+        composer.load_text("draft")
+        composer.focus()
+        await pilot.press("ctrl+e")
+        await pilot.pause()
+        assert isinstance(app.screen, EditorScreen)
+
+
+@pytest.mark.anyio
 async def test_permission_screen_has_keyboard_shortcuts(tmp_path: Path) -> None:
     app = TriadApp(
         runtime=TriadRuntime(
@@ -309,6 +361,59 @@ async def test_full_tool_flow_resolves_permission_modal_from_worker(tmp_path: Pa
         await pilot.pause()
         assert isinstance(app.screen, PermissionScreen)
         await pilot.press("enter")
+        await pilot.pause()
+        await pilot.pause()
+        transcript = app.query_one("#transcript")
+        joined = "\n".join(str(child.render()) for child in transcript.children)
+        assert "Final answer" in joined
+
+
+@pytest.mark.anyio
+async def test_editor_send_dispatches_through_normal_pipeline(tmp_path: Path) -> None:
+    manager = ConfigManager(root=tmp_path)
+    translator = Translator("en")
+    logger = logging.getLogger("test-app-editor-send")
+    logger.handlers.clear()
+    logger.addHandler(logging.NullHandler())
+    runtime = TriadRuntime(
+        config_manager=manager,
+        settings=UserSettings(language="en"),
+        profiles={},
+        translator=translator,
+        model_gateway=ScriptedGateway(
+            {
+                AgentRole.PROCESSOR: [
+                    ModelInvocationResult(parsed=AgentResponse(kind=AgentActionKind.FINAL, message="Processor done"))
+                ],
+                AgentRole.VALIDATOR: [
+                    ModelInvocationResult(parsed=AgentResponse(kind=AgentActionKind.FINAL, message="Validator done"))
+                ],
+                AgentRole.ORCHESTRATOR: [
+                    ModelInvocationResult(
+                        parsed=ConsolidatedResponse(
+                            processor_view="Processor done",
+                            validator_view="Validator done",
+                            synthesis="Final answer",
+                        )
+                    )
+                ],
+            }
+        ),
+        tool_broker=ToolBroker(workspace=tmp_path),
+        logger=logger,
+    )
+    app = TriadApp(runtime=runtime, translator=translator, config_manager=manager)
+
+    async with app.run_test() as pilot:
+        composer = app.query_one("#composer", ComposerArea)
+        composer.load_text("draft from editor")
+        composer.focus()
+        await pilot.press("ctrl+e")
+        await pilot.pause()
+        assert isinstance(app.screen, EditorScreen)
+        editor = app.screen.query_one("#editor-composer", TextArea)
+        editor.focus()
+        await pilot.press("ctrl+s")
         await pilot.pause()
         await pilot.pause()
         transcript = app.query_one("#transcript")

@@ -35,6 +35,7 @@ That makes the second model a grounded review layer rather than a second paralle
 ## Features
 
 - scrollable transcript with fixed bottom composer
+- two-line composer with `Enter` to send, `Ctrl+J` for a newline, and `Ctrl+E` for an expanded editor
 - proposal, validation, and consolidation pipeline
 - full visible conversation history passed back to agents on each turn
 - clarification loop when the processor or validator needs more data
@@ -111,6 +112,13 @@ Alternative entrypoint:
 ```bash
 uv run triadllm
 ```
+
+## Composer Controls
+
+- `Enter` sends the current draft
+- `Ctrl+J` inserts a newline in the bottom composer
+- `Ctrl+E` opens the expanded composer modal
+- inside the expanded composer, `Ctrl+S` sends and `Esc` cancels
 
 ## Fastest First Working Setup
 

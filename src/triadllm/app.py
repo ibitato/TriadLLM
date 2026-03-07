@@ -5,8 +5,9 @@ import shlex
 from textual import events, on
 from textual.app import App, ComposeResult
 from textual.containers import CenterMiddle, Container, Horizontal, VerticalScroll
+from textual.message import Message
 from textual.screen import ModalScreen
-from textual.widgets import Button, Input, Static
+from textual.widgets import Button, Static, TextArea
 
 from triadllm.config import ConfigManager
 from triadllm.domain import AgentRole, PermissionMode, SessionEvent, SessionEventKind, ToolRequest
@@ -109,6 +110,130 @@ class PermissionScreen(ModalScreen[bool]):
             self.dismiss(approved)
 
 
+class ComposerArea(TextArea):
+    class SubmitRequested(Message):
+        def __init__(self, text: str) -> None:
+            super().__init__()
+            self.text = text
+
+    class ExpandRequested(Message):
+        pass
+
+    def on_key(self, event: events.Key) -> None:
+        key = event.key.lower()
+        if key == "enter":
+            event.stop()
+            self.post_message(self.SubmitRequested(self.text))
+            return
+        if key == "ctrl+j":
+            event.stop()
+            self.insert("\n")
+            return
+        if key == "ctrl+e":
+            event.stop()
+            self.post_message(self.ExpandRequested())
+
+
+class EditorScreen(ModalScreen[str | None]):
+    BINDINGS = [
+        ("escape", "cancel", "Cancel"),
+        ("ctrl+s", "send", "Send"),
+    ]
+
+    CSS = """
+    EditorScreen {
+        background: rgba(0, 0, 0, 0.82);
+    }
+
+    CenterMiddle {
+        width: 100%;
+        height: 100%;
+    }
+
+    #editor-dialog {
+        width: 88%;
+        height: 88%;
+        padding: 1 2;
+        border: round #1f6f46;
+        background: #0b0f0c;
+    }
+
+    #editor-title {
+        color: #ff9f1c;
+        text-style: bold;
+    }
+
+    #editor-body {
+        height: 1fr;
+        margin-top: 1;
+    }
+
+    #editor-composer {
+        height: 1fr;
+        border: round #1f6f46;
+        background: #111111;
+        color: #f2ffd4;
+    }
+
+    #editor-help {
+        margin-top: 1;
+        color: #ffcf70;
+    }
+
+    #editor-actions {
+        height: auto;
+        margin-top: 1;
+        align: right middle;
+    }
+
+    #editor-actions Button {
+        margin-left: 1;
+    }
+    """
+
+    def __init__(self, initial_text: str, translator: Translator) -> None:
+        super().__init__()
+        self.initial_text = initial_text
+        self.translator = translator
+
+    def compose(self) -> ComposeResult:
+        with CenterMiddle():
+            with Container(id="editor-dialog"):
+                yield Static(self.translator.t("editor.title"), id="editor-title")
+                with Container(id="editor-body"):
+                    yield TextArea(
+                        self.initial_text,
+                        id="editor-composer",
+                        soft_wrap=True,
+                        show_line_numbers=False,
+                        placeholder=self.translator.t("editor.placeholder"),
+                    )
+                yield Static(self.translator.t("editor.help"), id="editor-help")
+                with Horizontal(id="editor-actions"):
+                    yield Button(self.translator.t("editor.cancel"), id="cancel")
+                    yield Button(self.translator.t("editor.send"), id="send", variant="success")
+
+    def on_mount(self) -> None:
+        self.call_after_refresh(self._focus_editor)
+
+    def _focus_editor(self) -> None:
+        editor = self.query_one("#editor-composer", TextArea)
+        editor.focus()
+
+    @on(Button.Pressed)
+    def handle_button(self, event: Button.Pressed) -> None:
+        if event.button.id == "send":
+            self.action_send()
+        else:
+            self.action_cancel()
+
+    def action_send(self) -> None:
+        self.dismiss(self.query_one("#editor-composer", TextArea).text)
+
+    def action_cancel(self) -> None:
+        self.dismiss(None)
+
+
 class ChatBlock(Static):
     def __init__(self, title: str, body: str, kind: str) -> None:
         super().__init__(body, classes=f"chat-block {kind}")
@@ -129,15 +254,6 @@ class TriadApp(App[None]):
         padding: 1;
     }
 
-    #titlebar {
-        height: 1;
-        min-height: 1;
-        margin: 0 1 1 1;
-        content-align: left middle;
-        color: #ff9f1c;
-        text-style: bold;
-    }
-
     #transcript {
         height: 1fr;
         min-height: 8;
@@ -148,15 +264,17 @@ class TriadApp(App[None]):
     }
 
     #composer-row {
-        height: 3;
-        min-height: 3;
+        height: 5;
+        min-height: 5;
         margin: 1 1 0 1;
         width: 100%;
+        align: center middle;
     }
 
     #composer {
         width: 1fr;
         min-width: 20;
+        height: 5;
         border: round #1f6f46;
         background: #111111;
         color: #f2ffd4;
@@ -164,6 +282,7 @@ class TriadApp(App[None]):
 
     #send {
         width: 10;
+        height: 5;
         margin-left: 1;
         background: #ff9f1c;
         color: #111111;
@@ -236,17 +355,24 @@ class TriadApp(App[None]):
 
     def compose(self) -> ComposeResult:
         with Container(id="root"):
-            yield Static(id="titlebar")
             yield VerticalScroll(id="transcript")
             with Horizontal(id="composer-row"):
-                yield Input(placeholder="", id="composer")
+                yield ComposerArea(
+                    "",
+                    id="composer",
+                    soft_wrap=True,
+                    show_line_numbers=False,
+                    compact=True,
+                    highlight_cursor_line=False,
+                    placeholder="",
+                )
                 yield Button("", id="send")
             yield Static(id="statusbar")
 
     async def on_mount(self) -> None:
         self.runtime.set_approval_handler(self._prompt_permission)
         self._refresh_chrome()
-        self.query_one("#composer", Input).focus()
+        self.query_one("#composer", ComposerArea).focus()
         await self._add_block(
             self.translator.t("event.system"),
             self.translator.t("app.welcome"),
@@ -265,22 +391,43 @@ class TriadApp(App[None]):
         self._apply_visibility_settings()
         self._refresh_status()
 
-    @on(Input.Submitted)
-    async def handle_submit(self, event: Input.Submitted) -> None:
-        await self._dispatch_input(event.value)
+    @on(ComposerArea.SubmitRequested)
+    async def handle_submit(self, event: ComposerArea.SubmitRequested) -> None:
+        await self._dispatch_input(event.text)
+
+    @on(ComposerArea.ExpandRequested)
+    def handle_expand_request(self, event: ComposerArea.ExpandRequested) -> None:
+        event.stop()
+        composer = self.query_one("#composer", ComposerArea)
+
+        def handle_result(result: str | None) -> None:
+            composer.focus()
+            if result is None:
+                return
+            composer.load_text(result)
+            self.run_worker(
+                self._dispatch_input(result),
+                name="editor-submit",
+                group="editor-submit",
+                exclusive=True,
+                exit_on_error=False,
+                thread=False,
+            )
+
+        self.push_screen(EditorScreen(composer.text, self.translator), callback=handle_result)
 
     @on(Button.Pressed, "#send")
     async def handle_send(self) -> None:
-        composer = self.query_one("#composer", Input)
-        await self._dispatch_input(composer.value)
+        composer = self.query_one("#composer", ComposerArea)
+        await self._dispatch_input(composer.text)
 
     async def _dispatch_input(self, raw: str) -> None:
         text = raw.strip()
         if not text or self.busy:
             return
 
-        composer = self.query_one("#composer", Input)
-        composer.value = ""
+        composer = self.query_one("#composer", ComposerArea)
+        composer.load_text("")
 
         if text.startswith("/"):
             await self._handle_command(text)
@@ -438,8 +585,7 @@ class TriadApp(App[None]):
         transcript.scroll_end(animate=False)
 
     def _refresh_chrome(self) -> None:
-        self.query_one("#titlebar", Static).update(self.translator.t("app.title"))
-        self.query_one("#composer", Input).placeholder = self.translator.t("input.placeholder")
+        self.query_one("#composer", ComposerArea).placeholder = self.translator.t("input.placeholder")
         self.query_one("#send", Button).label = self.translator.t("button.send")
         self.title = self.translator.t("app.title")
         self.sub_title = "Multi-agent terminal"
