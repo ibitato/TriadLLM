@@ -16,6 +16,14 @@ from multibrainllm.runtime import MultiBrainRuntime
 
 
 class PermissionScreen(ModalScreen[bool]):
+    BINDINGS = [
+        ("escape", "deny", "Deny"),
+        ("q", "deny", "Deny"),
+        ("d", "deny", "Deny"),
+        ("a", "approve", "Approve"),
+        ("enter", "approve", "Approve"),
+    ]
+
     CSS = """
     Screen {
         align: center middle;
@@ -60,9 +68,21 @@ class PermissionScreen(ModalScreen[bool]):
                 yield Button(self.translator.t("permission.deny"), id="deny")
                 yield Button(self.translator.t("permission.approve"), id="approve", variant="success")
 
+    def on_mount(self) -> None:
+        self.call_after_refresh(self._focus_approve)
+
+    def _focus_approve(self) -> None:
+        self.query_one("#approve", Button).focus()
+
     @on(Button.Pressed)
     def handle_button(self, event: Button.Pressed) -> None:
         self.dismiss(event.button.id == "approve")
+
+    def action_approve(self) -> None:
+        self.dismiss(True)
+
+    def action_deny(self) -> None:
+        self.dismiss(False)
 
 
 class ChatBlock(Static):

@@ -4,8 +4,9 @@ import logging
 from pathlib import Path
 
 import pytest
+from textual.widgets import Button
 
-from multibrainllm.app import MultiBrainApp
+from multibrainllm.app import MultiBrainApp, PermissionScreen
 from multibrainllm.config import ConfigManager
 from multibrainllm.domain import ToolRequest, UserSettings
 from multibrainllm.i18n import Translator
@@ -127,3 +128,32 @@ async def test_prompt_permission_uses_screen_callback_result(tmp_path: Path) -> 
     )
 
     assert approved is True
+
+
+@pytest.mark.anyio
+async def test_permission_screen_has_keyboard_shortcuts(tmp_path: Path) -> None:
+    app = MultiBrainApp(
+        runtime=MultiBrainRuntime(
+            config_manager=ConfigManager(root=tmp_path),
+            settings=UserSettings(language="en"),
+            profiles={},
+            translator=Translator("en"),
+            model_gateway=IdleGateway(),
+            tool_broker=ToolBroker(workspace=tmp_path),
+            logger=logging.getLogger("test-app-permission-focus"),
+        ),
+        translator=Translator("en"),
+        config_manager=ConfigManager(root=tmp_path),
+    )
+
+    async with app.run_test():
+        screen = PermissionScreen(
+            ToolRequest(tool="list_dir", arguments={"path": "."}, reason="test"),
+            Translator("en"),
+        )
+        app.push_screen(screen)
+        await screen._mounted_event.wait()
+        approve_button = screen.query_one("#approve", Button)
+        assert approve_button is not None
+        assert ("enter", "approve", "Approve") in screen.BINDINGS
+        assert ("escape", "deny", "Deny") in screen.BINDINGS
