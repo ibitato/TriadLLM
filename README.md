@@ -194,6 +194,7 @@ Use `/permissions ask` or `/permissions yolo` to switch modes at runtime.
 - architecture guide: [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md)
 - troubleshooting guide: [`docs/TROUBLESHOOTING.md`](./docs/TROUBLESHOOTING.md)
 - FAQ: [`docs/FAQ.md`](./docs/FAQ.md)
+- public launch checklist: [`docs/PUBLIC_REPO_CHECKLIST.md`](./docs/PUBLIC_REPO_CHECKLIST.md)
 - roadmap: [`ROADMAP.md`](./ROADMAP.md)
 - changelog: [`CHANGELOG.md`](./CHANGELOG.md)
 - release process: [`docs/RELEASING.md`](./docs/RELEASING.md)
