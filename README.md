@@ -46,6 +46,7 @@ Copy the example provider config from [`src/multibrainllm/examples/profiles.yaml
 - `/models`
 - `/model set <agent> <profile>`
 - `/tools`
+- `/reasoning on|off`
 - `/clear`
 - `/quit`
 

@@ -13,6 +13,7 @@ from multibrainllm.domain import (
     AgentResponse,
     AgentRole,
     ConsolidatedResponse,
+    ModelInvocationResult,
     PermissionMode,
     ToolRequest,
     UserSettings,
@@ -23,7 +24,7 @@ from multibrainllm.tools import ToolBroker
 
 
 class FakeGateway:
-    def __init__(self, scripted: dict[AgentRole, list[BaseModel]]) -> None:
+    def __init__(self, scripted: dict[AgentRole, list[ModelInvocationResult[BaseModel]]]) -> None:
         self.scripted = {role: list(responses) for role, responses in scripted.items()}
 
     async def ainvoke(
@@ -32,9 +33,9 @@ class FakeGateway:
         schema: type[BaseModel],
         system_prompt: str,
         payload: dict[str, Any],
-    ) -> BaseModel:
+    ) -> ModelInvocationResult[BaseModel]:
         response = self.scripted[role].pop(0)
-        assert isinstance(response, schema)
+        assert isinstance(response.parsed, schema)
         return response
 
 
@@ -61,17 +62,19 @@ async def test_runtime_handles_clarification_resume(tmp_path: Path) -> None:
     gateway = FakeGateway(
         {
             AgentRole.PROCESSOR: [
-                AgentResponse(kind=AgentActionKind.ASK_USER, question="¿Qué archivo?"),
-                AgentResponse(kind=AgentActionKind.FINAL, message="Analicé main.py"),
+                ModelInvocationResult(parsed=AgentResponse(kind=AgentActionKind.ASK_USER, question="¿Qué archivo?")),
+                ModelInvocationResult(parsed=AgentResponse(kind=AgentActionKind.FINAL, message="Analicé main.py")),
             ],
             AgentRole.VALIDATOR: [
-                AgentResponse(kind=AgentActionKind.FINAL, message="La respuesta es consistente"),
+                ModelInvocationResult(parsed=AgentResponse(kind=AgentActionKind.FINAL, message="La respuesta es consistente")),
             ],
             AgentRole.ORCHESTRATOR: [
-                ConsolidatedResponse(
-                    processor_view="Agente 1 dijo que analizó main.py",
-                    validator_view="Agente 2 confirmó consistencia",
-                    synthesis="La ruta final es revisar main.py",
+                ModelInvocationResult(
+                    parsed=ConsolidatedResponse(
+                        processor_view="Agente 1 dijo que analizó main.py",
+                        validator_view="Agente 2 confirmó consistencia",
+                        synthesis="La ruta final es revisar main.py",
+                    )
                 ),
             ],
         }
@@ -90,24 +93,28 @@ async def test_runtime_handles_tool_denial(tmp_path: Path) -> None:
     gateway = FakeGateway(
         {
             AgentRole.PROCESSOR: [
-                AgentResponse(
-                    kind=AgentActionKind.REQUEST_TOOL,
-                    tool_request=ToolRequest(
-                        tool="shell_exec",
-                        arguments={"command": "echo hello"},
-                        reason="Necesito validar el entorno",
+                ModelInvocationResult(
+                    parsed=AgentResponse(
+                        kind=AgentActionKind.REQUEST_TOOL,
+                        tool_request=ToolRequest(
+                            tool="shell_exec",
+                            arguments={"command": "echo hello"},
+                            reason="Necesito validar el entorno",
+                        ),
                     ),
                 ),
-                AgentResponse(kind=AgentActionKind.FINAL, message="No pude ejecutar, pero te explico el siguiente paso."),
+                ModelInvocationResult(parsed=AgentResponse(kind=AgentActionKind.FINAL, message="No pude ejecutar, pero te explico el siguiente paso.")),
             ],
             AgentRole.VALIDATOR: [
-                AgentResponse(kind=AgentActionKind.FINAL, message="La negativa está correctamente reflejada."),
+                ModelInvocationResult(parsed=AgentResponse(kind=AgentActionKind.FINAL, message="La negativa está correctamente reflejada.")),
             ],
             AgentRole.ORCHESTRATOR: [
-                ConsolidatedResponse(
-                    processor_view="Agent 1 documented the denied execution.",
-                    validator_view="Agent 2 accepted the denial path.",
-                    synthesis="The system handled the permission denial correctly.",
+                ModelInvocationResult(
+                    parsed=ConsolidatedResponse(
+                        processor_view="Agent 1 documented the denied execution.",
+                        validator_view="Agent 2 accepted the denial path.",
+                        synthesis="The system handled the permission denial correctly.",
+                    )
                 ),
             ],
         }
@@ -118,3 +125,36 @@ async def test_runtime_handles_tool_denial(tmp_path: Path) -> None:
 
     assert any(event.title == "Tool Denegada" for event in events)
     assert any(event.kind.value == "final" for event in events)
+
+
+@pytest.mark.anyio
+async def test_runtime_emits_reasoning_events(tmp_path: Path) -> None:
+    gateway = FakeGateway(
+        {
+            AgentRole.PROCESSOR: [
+                ModelInvocationResult(
+                    parsed=AgentResponse(kind=AgentActionKind.FINAL, message="Respuesta"),
+                    model_name="gpt-5.4-2026-03-05",
+                    reasoning_summary=["He comparado varias opciones antes de responder."],
+                    reasoning_tokens=42,
+                )
+            ],
+            AgentRole.VALIDATOR: [
+                ModelInvocationResult(parsed=AgentResponse(kind=AgentActionKind.FINAL, message="Validado")),
+            ],
+            AgentRole.ORCHESTRATOR: [
+                ModelInvocationResult(
+                    parsed=ConsolidatedResponse(
+                        processor_view="Respuesta",
+                        validator_view="Validado",
+                        synthesis="Síntesis",
+                    )
+                )
+            ],
+        }
+    )
+    runtime = build_runtime(tmp_path, gateway)
+
+    events = await runtime.submit_user_message("hola")
+
+    assert any(event.kind.value == "reasoning" for event in events)

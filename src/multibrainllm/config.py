@@ -82,7 +82,10 @@ class ConfigManager:
         return {
             "paths": self.paths.model_dump(),
             "settings": settings.model_dump(mode="json"),
-            "profiles": sorted(profiles.keys()),
+            "profiles": {
+                profile_id: profile.model_dump(mode="json")
+                for profile_id, profile in profiles.items()
+            },
             "sample_profiles": str(self.sample_profiles_path()),
         }
 

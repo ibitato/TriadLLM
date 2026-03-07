@@ -67,6 +67,7 @@ class PermissionScreen(ModalScreen[bool]):
 class ChatBlock(Static):
     def __init__(self, title: str, body: str, kind: str) -> None:
         super().__init__(body, classes=f"chat-block {kind}")
+        self.kind = kind
         self.border_title = title
 
 
@@ -145,12 +146,22 @@ class MultiBrainApp(App[None]):
         border: round #ffc857;
     }
 
+    .reasoning {
+        border: round #7bdff2;
+        color: #7bdff2;
+        text-style: italic dim;
+    }
+
     .clarification {
         border: round #f77f00;
     }
 
     .final {
         border: round #2ec4b6;
+    }
+
+    .is-hidden {
+        display: none;
     }
     """
 
@@ -184,6 +195,7 @@ class MultiBrainApp(App[None]):
             self.translator.t("app.welcome"),
             "system",
         )
+        self._apply_reasoning_visibility()
         self._refresh_status()
 
     @on(Input.Submitted)
@@ -252,17 +264,29 @@ class MultiBrainApp(App[None]):
                 body = self.translator.t("slash.lang.changed", language=args[0])
         elif command == "/models":
             status = self.runtime.status()
-            body = self.translator.t(
-                "slash.models",
-                profiles=", ".join(status.available_profiles) or self.translator.t("status.none"),
-                orchestrator=status.active_profiles[AgentRole.ORCHESTRATOR] or self.translator.t("status.none"),
-                processor=status.active_profiles[AgentRole.PROCESSOR] or self.translator.t("status.none"),
-                validator=status.active_profiles[AgentRole.VALIDATOR] or self.translator.t("status.none"),
+            body = "\n\n".join(
+                [
+                    self.translator.t(
+                        "slash.models",
+                        profiles=", ".join(status.available_profiles) or self.translator.t("status.none"),
+                        orchestrator=self._describe_profile(status.active_profiles[AgentRole.ORCHESTRATOR]),
+                        processor=self._describe_profile(status.active_profiles[AgentRole.PROCESSOR]),
+                        validator=self._describe_profile(status.active_profiles[AgentRole.VALIDATOR]),
+                    )
+                ]
             )
         elif command == "/model":
             body = await self._handle_model_command(args)
         elif command == "/tools":
             body = self.translator.t("slash.tools", tools=", ".join(self.runtime.tool_broker.available_tools()))
+        elif command == "/reasoning":
+            if not args or args[0] not in {"on", "off"}:
+                body = self.translator.t("slash.reasoning.invalid")
+            else:
+                visible = args[0] == "on"
+                self.runtime.set_reasoning_visibility(visible)
+                self._apply_reasoning_visibility()
+                body = self.translator.t("slash.reasoning.changed", state=args[0])
         elif command == "/clear":
             self.query_one("#transcript", VerticalScroll).remove_children()
             body = self.translator.t("slash.clear")
@@ -296,6 +320,7 @@ class MultiBrainApp(App[None]):
             SessionEventKind.USER: "user",
             SessionEventKind.SYSTEM: "system",
             SessionEventKind.TOOL: "tool",
+            SessionEventKind.REASONING: "reasoning",
             SessionEventKind.CLARIFICATION: "clarification",
             SessionEventKind.FINAL: "final",
         }
@@ -303,7 +328,10 @@ class MultiBrainApp(App[None]):
 
     async def _add_block(self, title: str, body: str, kind: str) -> None:
         transcript = self.query_one("#transcript", VerticalScroll)
-        await transcript.mount(ChatBlock(title, body, kind))
+        block = ChatBlock(title, body, kind)
+        await transcript.mount(block)
+        if kind == "reasoning" and not self.runtime.settings.show_reasoning:
+            block.add_class("is-hidden")
         transcript.scroll_end(animate=False)
 
     def _refresh_chrome(self) -> None:
@@ -312,6 +340,7 @@ class MultiBrainApp(App[None]):
         self.query_one("#send", Button).label = self.translator.t("button.send")
         self.title = self.translator.t("app.title")
         self.sub_title = "Multi-agent terminal"
+        self._apply_reasoning_visibility()
         self._refresh_status()
 
     def _refresh_status(self) -> None:
@@ -325,8 +354,36 @@ class MultiBrainApp(App[None]):
                 language=status.language,
                 permission=status.permission_mode.value,
                 profile=default_profile,
+                reasoning=self.translator.t("status.on") if status.show_reasoning else self.translator.t("status.off"),
             )
         )
 
     async def _prompt_permission(self, request: ToolRequest) -> bool:
         return await self.push_screen_wait(PermissionScreen(request, self.translator))
+
+    def _apply_reasoning_visibility(self) -> None:
+        transcript = self.query_one("#transcript", VerticalScroll)
+        for child in transcript.children:
+            if isinstance(child, ChatBlock) and child.kind == "reasoning":
+                child.set_class(not self.runtime.settings.show_reasoning, "is-hidden")
+
+    def _describe_profile(self, profile_id: str | None) -> str:
+        if profile_id is None:
+            return self.translator.t("status.none")
+        profile = self.runtime.profiles.get(profile_id)
+        if profile is None:
+            return profile_id
+        details = [
+            f"id={profile.id}",
+            f"model={profile.model}",
+            f"temp={profile.temperature}",
+        ]
+        if profile.context_window is not None:
+            details.append(f"context={profile.context_window}")
+        if profile.max_output_tokens_limit is not None:
+            details.append(f"max_output={profile.max_output_tokens_limit}")
+        if profile.reasoning_effort is not None:
+            details.append(f"effort={profile.reasoning_effort}")
+        if profile.reasoning_summary is not None:
+            details.append(f"summary={profile.reasoning_summary}")
+        return ", ".join(details)

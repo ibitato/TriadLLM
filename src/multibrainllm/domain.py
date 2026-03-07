@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Literal
+from typing import Any, Generic, Literal, TypeVar
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -37,6 +38,7 @@ class SessionEventKind(str, Enum):
     USER = "user"
     SYSTEM = "system"
     TOOL = "tool"
+    REASONING = "reasoning"
     CLARIFICATION = "clarification"
     FINAL = "final"
 
@@ -50,13 +52,17 @@ class ProviderProfile(BaseModel):
     temperature: float = 0.2
     timeout: float = 60.0
     max_tokens: int | None = None
+    context_window: int | None = None
+    max_output_tokens_limit: int | None = None
     reasoning_effort: str | None = None
+    reasoning_summary: str | None = None
     default_headers: dict[str, str] = Field(default_factory=dict)
 
 
 class UserSettings(BaseModel):
     language: LanguageCode = "es"
     permission_mode: PermissionMode = PermissionMode.ASK
+    show_reasoning: bool = True
     default_profile: str | None = None
     agent_profiles: dict[AgentRole, str] = Field(default_factory=dict)
     log_level: str = "INFO"
@@ -132,9 +138,21 @@ class AppPaths(BaseModel):
 class RuntimeStatus(BaseModel):
     language: LanguageCode
     permission_mode: PermissionMode
+    show_reasoning: bool
     default_profile: str | None
     active_profiles: dict[AgentRole, str | None]
     available_profiles: list[str]
     pending_clarification: bool
     logs_path: str
     config_path: str
+
+
+SchemaT = TypeVar("SchemaT", bound=BaseModel)
+
+
+@dataclass(slots=True)
+class ModelInvocationResult(Generic[SchemaT]):
+    parsed: SchemaT
+    model_name: str | None = None
+    reasoning_summary: list[str] = field(default_factory=list)
+    reasoning_tokens: int | None = None

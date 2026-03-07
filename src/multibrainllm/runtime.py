@@ -62,6 +62,10 @@ class MultiBrainRuntime:
         self.settings.permission_mode = mode
         self.config_manager.save_settings(self.settings)
 
+    def set_reasoning_visibility(self, visible: bool) -> None:
+        self.settings.show_reasoning = visible
+        self.config_manager.save_settings(self.settings)
+
     def set_default_profile(self, profile_id: str | None) -> None:
         self.settings.default_profile = profile_id
         self.config_manager.save_settings(self.settings)
@@ -78,6 +82,7 @@ class MultiBrainRuntime:
         return RuntimeStatus(
             language=self.settings.language,
             permission_mode=self.settings.permission_mode,
+            show_reasoning=self.settings.show_reasoning,
             default_profile=self.settings.default_profile,
             active_profiles=active_profiles,
             available_profiles=sorted(self.profiles.keys()),
@@ -209,13 +214,16 @@ class MultiBrainRuntime:
                 "tool_results": [result.model_dump(mode="json") for result in tool_results],
                 "clarification_answers": clarifications,
             }
-            response = await self.model_gateway.ainvoke(
+            invocation = await self.model_gateway.ainvoke(
                 role=role,
                 schema=AgentResponse,
                 system_prompt=build_agent_prompt(role, self.settings.language),
                 payload=payload,
             )
+            response = invocation.parsed
             self.logger.info("agent_response", extra={"role": role.value, "kind": response.kind.value})
+            if invocation.reasoning_summary or invocation.reasoning_tokens:
+                self._emit_reasoning(events, role, invocation.reasoning_summary, invocation.reasoning_tokens, invocation.model_name)
 
             if response.kind == AgentActionKind.FINAL:
                 return response
@@ -281,7 +289,7 @@ class MultiBrainRuntime:
         validator_output: str,
         events: list[SessionEvent],
     ) -> None:
-        final = await self.model_gateway.ainvoke(
+        final_invocation = await self.model_gateway.ainvoke(
             role=AgentRole.ORCHESTRATOR,
             schema=ConsolidatedResponse,
             system_prompt=build_agent_prompt(AgentRole.ORCHESTRATOR, self.settings.language),
@@ -293,6 +301,15 @@ class MultiBrainRuntime:
                 "language": self.settings.language,
             },
         )
+        final = final_invocation.parsed
+        if final_invocation.reasoning_summary or final_invocation.reasoning_tokens:
+            self._emit_reasoning(
+                events,
+                AgentRole.ORCHESTRATOR,
+                final_invocation.reasoning_summary,
+                final_invocation.reasoning_tokens,
+                final_invocation.model_name,
+            )
         body = "\n\n".join(
             [
                 f"{self.translator.t('final.processor_label')}\n{final.processor_view}",
@@ -332,3 +349,30 @@ class MultiBrainRuntime:
         self.session_file.parent.mkdir(parents=True, exist_ok=True)
         with self.session_file.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(event.model_dump(mode="json"), ensure_ascii=False) + "\n")
+
+    def _emit_reasoning(
+        self,
+        collector: list[SessionEvent],
+        role: AgentRole,
+        reasoning_summary: list[str],
+        reasoning_tokens: int | None,
+        model_name: str | None,
+    ) -> None:
+        title = self.translator.t(
+            "event.reasoning_title",
+            role=role.value,
+            model=model_name or self.translator.t("status.none"),
+            tokens=reasoning_tokens if reasoning_tokens is not None else "?",
+        )
+        body = "\n\n".join(reasoning_summary) if reasoning_summary else self.translator.t("event.reasoning_unavailable")
+        self._emit(
+            collector,
+            SessionEventKind.REASONING,
+            title,
+            body,
+            role=role,
+            metadata={
+                "reasoning_tokens": reasoning_tokens,
+                "model_name": model_name,
+            },
+        )
