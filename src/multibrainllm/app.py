@@ -81,12 +81,13 @@ class MultiBrainApp(App[None]):
     #root {
         height: 100%;
         layout: vertical;
-        padding: 1 2;
+        padding: 1;
     }
 
     #titlebar {
-        dock: top;
-        height: 3;
+        height: 1;
+        min-height: 1;
+        margin: 0 1 1 1;
         content-align: left middle;
         color: #ff9f1c;
         text-style: bold;
@@ -94,36 +95,43 @@ class MultiBrainApp(App[None]):
 
     #transcript {
         height: 1fr;
+        min-height: 8;
+        margin: 0 1;
         border: round #1f6f46;
         padding: 1;
         background: #050806;
     }
 
     #composer-row {
-        dock: bottom;
         height: 3;
-        margin-top: 1;
+        min-height: 3;
+        margin: 1 1 0 1;
+        width: 100%;
     }
 
     #composer {
         width: 1fr;
+        min-width: 20;
         border: round #1f6f46;
         background: #111111;
         color: #f2ffd4;
     }
 
     #send {
-        width: 12;
+        width: 10;
         margin-left: 1;
         background: #ff9f1c;
         color: #111111;
     }
 
     #statusbar {
-        dock: bottom;
-        height: 2;
-        margin-top: 1;
+        height: 1;
+        min-height: 1;
+        margin: 1 1 0 1;
         color: #ffcf70;
+        content-align: left middle;
+        text-overflow: ellipsis;
+        width: 100%;
     }
 
     .chat-block {
@@ -162,6 +170,10 @@ class MultiBrainApp(App[None]):
 
     .is-hidden {
         display: none;
+    }
+
+    .status-value {
+        text-style: bold;
     }
     """
 
@@ -356,6 +368,8 @@ class MultiBrainApp(App[None]):
         status = self.runtime.status()
         state = self.translator.t("status.busy") if self.busy else self.translator.t("status.ready")
         default_profile = status.default_profile or self.translator.t("status.none")
+        if len(default_profile) > 28:
+            default_profile = f"{default_profile[:25]}..."
         self.query_one("#statusbar", Static).update(
             self.translator.t(
                 "status.line",
