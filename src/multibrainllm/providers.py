@@ -5,6 +5,7 @@ import os
 from typing import Any, Protocol
 from urllib.parse import urlparse
 
+import httpx
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 from openai import AsyncOpenAI
@@ -30,6 +31,7 @@ class LangChainGateway:
         self.settings = settings
         self._clients: dict[str, ChatOpenAI] = {}
         self._openai_clients: dict[str, AsyncOpenAI] = {}
+        self._http_clients: dict[str, httpx.AsyncClient] = {}
 
     def profile_for_role(self, role: AgentRole) -> ProviderProfile:
         profile_id = self.settings.agent_profiles.get(role) or self.settings.default_profile
@@ -81,6 +83,30 @@ class LangChainGateway:
         host = urlparse(profile.base_url).hostname or ""
         return host.endswith("openai.com")
 
+    def _is_official_mistral(self, profile: ProviderProfile) -> bool:
+        host = urlparse(profile.base_url).hostname or ""
+        return host.endswith("mistral.ai")
+
+    def _get_http_client(self, profile: ProviderProfile) -> httpx.AsyncClient:
+        if profile.id in self._http_clients:
+            return self._http_clients[profile.id]
+
+        api_key = os.getenv(profile.api_key_env)
+        if not api_key:
+            raise RuntimeError(f"Missing environment variable: {profile.api_key_env}")
+
+        client = httpx.AsyncClient(
+            base_url=profile.base_url.rstrip("/"),
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+                **(profile.default_headers or {}),
+            },
+            timeout=profile.timeout,
+        )
+        self._http_clients[profile.id] = client
+        return client
+
     async def ainvoke(
         self,
         role: AgentRole,
@@ -91,6 +117,8 @@ class LangChainGateway:
         profile = self.profile_for_role(role)
         if self._is_official_openai(profile) and profile.reasoning_summary:
             return await self._ainvoke_openai_responses(profile, schema, system_prompt, payload)
+        if self._is_official_mistral(profile):
+            return await self._ainvoke_mistral_chat(profile, schema, system_prompt, payload)
         return await self._ainvoke_langchain(profile, schema, system_prompt, payload)
 
     async def _ainvoke_langchain(
@@ -194,12 +222,62 @@ class LangChainGateway:
                     summaries.append(str(text))
         return summaries
 
+    async def _ainvoke_mistral_chat(
+        self,
+        profile: ProviderProfile,
+        schema: type[SchemaT],
+        system_prompt: str,
+        payload: dict[str, Any],
+    ) -> ModelInvocationResult[SchemaT]:
+        client = self._get_http_client(profile)
+        request_body: dict[str, Any] = {
+            "model": profile.model,
+            "messages": [
+                {
+                    "role": "system",
+                    "content": self._build_mistral_json_instructions(system_prompt, schema),
+                },
+                {
+                    "role": "user",
+                    "content": json.dumps(payload, ensure_ascii=False, indent=2),
+                },
+            ],
+            "temperature": profile.temperature,
+        }
+        if profile.max_tokens is not None:
+            request_body["max_tokens"] = profile.max_tokens
+
+        response = await client.post("/chat/completions", json=request_body)
+        response.raise_for_status()
+        data = response.json()
+
+        message = data["choices"][0]["message"]
+        final_text, thinking_chunks = self._extract_mistral_message_parts(message.get("content"))
+        parsed = self._parse_openai_output(final_text, schema)
+        model_name = data.get("model")
+
+        return ModelInvocationResult(
+            parsed=parsed,
+            model_name=model_name,
+            reasoning_summary=thinking_chunks,
+        )
+
     def _build_openai_json_instructions(self, system_prompt: str, schema: type[SchemaT]) -> str:
         schema_json = json.dumps(schema.model_json_schema(), ensure_ascii=False, indent=2)
         return "\n\n".join(
             [
                 system_prompt,
                 "Return only valid JSON with no Markdown fences or extra commentary.",
+                f"JSON schema to follow:\n{schema_json}",
+            ]
+        )
+
+    def _build_mistral_json_instructions(self, system_prompt: str, schema: type[SchemaT]) -> str:
+        schema_json = json.dumps(schema.model_json_schema(), ensure_ascii=False, indent=2)
+        return "\n\n".join(
+            [
+                system_prompt,
+                "Return a valid JSON object only, with no markdown fences and no extra commentary.",
                 f"JSON schema to follow:\n{schema_json}",
             ]
         )
@@ -236,3 +314,25 @@ class LangChainGateway:
                 if depth == 0:
                     return text[start : index + 1]
         raise RuntimeError("OpenAI response JSON object was incomplete")
+
+    def _extract_mistral_message_parts(self, content: Any) -> tuple[str, list[str]]:
+        if isinstance(content, str):
+            return content, []
+        if not isinstance(content, list):
+            raise RuntimeError("Unsupported Mistral message content format")
+
+        text_parts: list[str] = []
+        thinking_parts: list[str] = []
+        for chunk in content:
+            if not isinstance(chunk, dict):
+                continue
+            chunk_type = chunk.get("type")
+            if chunk_type == "text":
+                text = chunk.get("text")
+                if text:
+                    text_parts.append(str(text))
+            elif chunk_type == "thinking":
+                for item in chunk.get("thinking", []):
+                    if isinstance(item, dict) and item.get("type") == "text" and item.get("text"):
+                        thinking_parts.append(str(item["text"]))
+        return "\n".join(text_parts).strip(), thinking_parts

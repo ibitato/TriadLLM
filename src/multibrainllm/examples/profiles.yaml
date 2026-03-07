@@ -33,6 +33,16 @@ profiles:
     reasoning_effort: medium
     reasoning_summary: auto
 
+  validator_magistral_medium_latest:
+    label: Magistral Medium Latest
+    base_url: https://api.mistral.ai/v1
+    model: magistral-medium-latest
+    api_key_env: MISTRAL_API_KEY
+    temperature: 0.7
+    timeout: 60
+    max_tokens: 1800
+    context_window: 131072
+
   validator_mistral_large_latest:
     label: Mistral Large Latest
     base_url: https://api.mistral.ai/v1
