@@ -3,6 +3,7 @@ default_profile: openai_default
 profiles:
   openai_default:
     label: OpenAI Default
+    provider: openai
     base_url: https://api.openai.com/v1
     model: gpt-4.1-mini
     api_key_env: OPENAI_API_KEY
@@ -12,6 +13,7 @@ profiles:
 
   orchestrator_mistral_medium_latest:
     label: Mistral Medium Latest
+    provider: mistral
     base_url: https://api.mistral.ai/v1
     model: mistral-medium-latest
     api_key_env: MISTRAL_API_KEY
@@ -22,6 +24,7 @@ profiles:
 
   processor_gpt54_medium:
     label: GPT-5.4 Medium
+    provider: openai
     base_url: https://api.openai.com/v1
     model: gpt-5.4
     api_key_env: OPENAI_API_KEY
@@ -35,6 +38,7 @@ profiles:
 
   validator_magistral_medium_latest:
     label: Magistral Medium Latest
+    provider: mistral
     base_url: https://api.mistral.ai/v1
     model: magistral-medium-latest
     api_key_env: MISTRAL_API_KEY
@@ -45,6 +49,7 @@ profiles:
 
   validator_mistral_large_latest:
     label: Mistral Large Latest
+    provider: mistral
     base_url: https://api.mistral.ai/v1
     model: mistral-large-latest
     api_key_env: MISTRAL_API_KEY
@@ -52,3 +57,14 @@ profiles:
     timeout: 60
     max_tokens: 1800
     context_window: 262144
+
+  local_glm47_flash:
+    label: Local GLM-4.7 Flash
+    provider: openai_compatible
+    base_url: http://127.0.0.1:8080/v1
+    model: zai-org/GLM-4.7-Flash
+    api_key_literal: dummy
+    temperature: 0.7
+    timeout: 60
+    max_tokens: 1024
+    context_window: 202752

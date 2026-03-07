@@ -6,7 +6,7 @@ from multibrainllm.app import MultiBrainApp
 from multibrainllm.config import ConfigManager
 from multibrainllm.i18n import Translator
 from multibrainllm.logging_utils import configure_logging
-from multibrainllm.providers import LangChainGateway
+from multibrainllm.providers import ProviderGateway
 from multibrainllm.runtime import MultiBrainRuntime
 from multibrainllm.tools import ToolBroker
 
@@ -20,7 +20,7 @@ def build_runtime(config_root: str | None = None) -> MultiBrainRuntime:
         config_manager.save_settings(settings)
     translator = Translator(settings.language)
     logger = configure_logging(config_manager.paths.log_file, settings)
-    gateway = LangChainGateway(profiles, settings)
+    gateway = ProviderGateway(profiles, settings)
     broker = ToolBroker()
     return MultiBrainRuntime(
         config_manager=config_manager,

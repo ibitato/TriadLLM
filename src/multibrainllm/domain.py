@@ -5,7 +5,9 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Generic, Literal, TypeVar
 
-from pydantic import BaseModel, Field, model_validator
+import json
+
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 LanguageCode = Literal["en", "es"]
@@ -20,6 +22,12 @@ class AgentRole(str, Enum):
 class PermissionMode(str, Enum):
     ASK = "ask"
     YOLO = "yolo"
+
+
+class ProviderBackend(str, Enum):
+    OPENAI = "openai"
+    OPENAI_COMPATIBLE = "openai_compatible"
+    MISTRAL = "mistral"
 
 
 class ToolRisk(str, Enum):
@@ -48,7 +56,9 @@ class ProviderProfile(BaseModel):
     label: str
     base_url: str
     model: str
-    api_key_env: str
+    provider: ProviderBackend | None = None
+    api_key_env: str | None = None
+    api_key_literal: str | None = None
     temperature: float = 0.2
     timeout: float = 60.0
     max_tokens: int | None = None
@@ -105,6 +115,11 @@ class ConsolidatedResponse(BaseModel):
     validator_view: str
     synthesis: str
 
+    @field_validator("processor_view", "validator_view", "synthesis", mode="before")
+    @classmethod
+    def normalize_text_fields(cls, value: Any) -> str:
+        return _coerce_text(value)
+
 
 class PendingClarification(BaseModel):
     role: AgentRole
@@ -156,3 +171,33 @@ class ModelInvocationResult(Generic[SchemaT]):
     model_name: str | None = None
     reasoning_summary: list[str] = field(default_factory=list)
     reasoning_tokens: int | None = None
+
+
+def _coerce_text(value: Any) -> str:
+    if isinstance(value, str):
+        return value.strip()
+    if value is None:
+        return ""
+    if isinstance(value, list):
+        parts = [_coerce_text(item) for item in value]
+        return "\n".join(part for part in parts if part).strip()
+    if isinstance(value, dict):
+        for key in (
+            "text",
+            "message",
+            "content",
+            "synthesis",
+            "final_answer",
+            "respuesta_final",
+            "answer",
+        ):
+            if key in value:
+                text = _coerce_text(value[key])
+                if text:
+                    return text
+        for item in value.values():
+            text = _coerce_text(item)
+            if text:
+                return text
+        return json.dumps(value, ensure_ascii=False)
+    return str(value).strip()

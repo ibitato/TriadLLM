@@ -47,8 +47,7 @@ class MultiBrainRuntime:
         self.history: list[SessionEvent] = []
         self.pending: PendingClarification | None = None
         self.approval_handler: ApprovalHandler | None = None
-        timestamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
-        self.session_file = Path(self.config_manager.paths.sessions_dir) / f"session-{timestamp}.jsonl"
+        self.session_file = self._new_session_file()
 
     def set_approval_handler(self, handler: ApprovalHandler) -> None:
         self.approval_handler = handler
@@ -73,6 +72,11 @@ class MultiBrainRuntime:
     def set_agent_profile(self, role: AgentRole, profile_id: str) -> None:
         self.settings.agent_profiles[role] = profile_id
         self.config_manager.save_settings(self.settings)
+
+    def reset_conversation(self) -> None:
+        self.history = []
+        self.pending = None
+        self.session_file = self._new_session_file()
 
     def status(self) -> RuntimeStatus:
         active_profiles = {
@@ -116,7 +120,7 @@ class MultiBrainRuntime:
         return events
 
     async def _run_full_turn(self, message: str, events: list[SessionEvent]) -> None:
-        history = self._conversation_excerpt()
+        history = self._conversation_context()
         processor_payload = {
             "user_message": message,
             "conversation": history,
@@ -172,7 +176,7 @@ class MultiBrainRuntime:
             validator_payload = {
                 "user_message": pending.base_payload["user_message"],
                 "processor_answer": response.message,
-                "conversation": self._conversation_excerpt(),
+                "conversation": self._conversation_context(),
                 "language": self.settings.language,
             }
             validator_response = await self._drive_agent(
@@ -297,7 +301,7 @@ class MultiBrainRuntime:
                 "user_message": message,
                 "processor_output": processor_output,
                 "validator_output": validator_output,
-                "conversation": self._conversation_excerpt(),
+                "conversation": self._conversation_context(),
                 "language": self.settings.language,
             },
         )
@@ -327,9 +331,17 @@ class MultiBrainRuntime:
             reason=reason,
         )
 
-    def _conversation_excerpt(self, limit: int = 8) -> list[dict[str, Any]]:
-        excerpt = self.history[-limit:]
-        return [event.model_dump(mode="json") for event in excerpt]
+    def _conversation_context(self) -> list[dict[str, Any]]:
+        visible_kinds = {
+            SessionEventKind.USER,
+            SessionEventKind.CLARIFICATION,
+            SessionEventKind.FINAL,
+        }
+        return [
+            event.model_dump(mode="json")
+            for event in self.history
+            if event.kind in visible_kinds
+        ]
 
     def _emit(
         self,
@@ -376,3 +388,7 @@ class MultiBrainRuntime:
                 "model_name": model_name,
             },
         )
+
+    def _new_session_file(self) -> Path:
+        timestamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
+        return Path(self.config_manager.paths.sessions_dir) / f"session-{timestamp}.jsonl"

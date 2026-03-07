@@ -287,6 +287,15 @@ class MultiBrainApp(App[None]):
                 self.runtime.set_reasoning_visibility(visible)
                 self._apply_reasoning_visibility()
                 body = self.translator.t("slash.reasoning.changed", state=args[0])
+        elif command == "/new":
+            self.runtime.reset_conversation()
+            self.query_one("#transcript", VerticalScroll).remove_children()
+            await self._add_block(
+                self.translator.t("event.system"),
+                self.translator.t("app.welcome"),
+                "system",
+            )
+            body = self.translator.t("slash.new")
         elif command == "/clear":
             self.query_one("#transcript", VerticalScroll).remove_children()
             body = self.translator.t("slash.clear")
@@ -375,6 +384,7 @@ class MultiBrainApp(App[None]):
             return profile_id
         details = [
             f"id={profile.id}",
+            f"provider={profile.provider.value if profile.provider else 'auto'}",
             f"model={profile.model}",
             f"temp={profile.temperature}",
         ]

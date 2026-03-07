@@ -15,6 +15,8 @@ from multibrainllm.domain import (
     ConsolidatedResponse,
     ModelInvocationResult,
     PermissionMode,
+    SessionEvent,
+    SessionEventKind,
     ToolRequest,
     UserSettings,
 )
@@ -26,6 +28,7 @@ from multibrainllm.tools import ToolBroker
 class FakeGateway:
     def __init__(self, scripted: dict[AgentRole, list[ModelInvocationResult[BaseModel]]]) -> None:
         self.scripted = {role: list(responses) for role, responses in scripted.items()}
+        self.seen_payloads: dict[AgentRole, list[dict[str, Any]]] = {role: [] for role in scripted}
 
     async def ainvoke(
         self,
@@ -34,6 +37,7 @@ class FakeGateway:
         system_prompt: str,
         payload: dict[str, Any],
     ) -> ModelInvocationResult[BaseModel]:
+        self.seen_payloads.setdefault(role, []).append(payload)
         response = self.scripted[role].pop(0)
         assert isinstance(response.parsed, schema)
         return response
@@ -158,3 +162,36 @@ async def test_runtime_emits_reasoning_events(tmp_path: Path) -> None:
     events = await runtime.submit_user_message("hola")
 
     assert any(event.kind.value == "reasoning" for event in events)
+
+
+@pytest.mark.anyio
+async def test_runtime_passes_full_visible_conversation(tmp_path: Path) -> None:
+    gateway = FakeGateway(
+        {
+            AgentRole.PROCESSOR: [ModelInvocationResult(parsed=AgentResponse(kind=AgentActionKind.FINAL, message="proc"))],
+            AgentRole.VALIDATOR: [ModelInvocationResult(parsed=AgentResponse(kind=AgentActionKind.FINAL, message="val"))],
+            AgentRole.ORCHESTRATOR: [
+                ModelInvocationResult(
+                    parsed=ConsolidatedResponse(
+                        processor_view="proc",
+                        validator_view="val",
+                        synthesis="syn",
+                    )
+                )
+            ],
+        }
+    )
+    runtime = build_runtime(tmp_path, gateway)
+    for index in range(10):
+        runtime.history.append(
+            SessionEvent(
+                kind=SessionEventKind.FINAL,
+                title=f"Turn {index}",
+                body=f"Body {index}",
+            )
+        )
+
+    await runtime.submit_user_message("nuevo mensaje")
+
+    processor_payload = gateway.seen_payloads[AgentRole.PROCESSOR][0]
+    assert len(processor_payload["conversation"]) == 11

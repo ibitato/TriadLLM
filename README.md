@@ -6,7 +6,7 @@
 - `processor`: primary reasoning agent
 - `validator`: review and contrast agent
 
-The interface is built with `Textual`, the model layer uses `LangChain`, and provider profiles target OpenAI-compatible APIs.
+The interface is built with `Textual`, uses the official OpenAI and Mistral SDKs where available, and supports OpenAI-compatible local providers for endpoints such as `GLM-4.7-Flash` on `localhost`.
 
 ## Features
 
@@ -14,11 +14,13 @@ The interface is built with `Textual`, the model layer uses `LangChain`, and pro
 - Scrollable transcript with fixed bottom composer
 - Three-agent pipeline with consolidated final response
 - User clarification loop when processor or validator needs more data
+- Full visible conversation history is passed back to every agent on each turn
 - Local tools with `ask` and `yolo` permission modes
 - Slash commands for runtime control
 - Structured logging with daily rotation
 - Built-in i18n for Spanish and English, extensible to more locales
 - Reproducible Python 3.13 environment via `uv`
+- Official SDK integration for OpenAI and Mistral, plus OpenAI-compatible local backends
 
 ## Quick Start
 
@@ -47,6 +49,7 @@ Copy the example provider config from [`src/multibrainllm/examples/profiles.yaml
 - `/model set <agent> <profile>`
 - `/tools`
 - `/reasoning on|off`
+- `/new`
 - `/clear`
 - `/quit`
 
