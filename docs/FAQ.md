@@ -1,5 +1,16 @@
 # FAQ
 
+## What is the fastest way to get the first successful response?
+
+Use a single OpenAI profile for all roles:
+
+1. copy `src/triadllm/examples/profiles.yaml` to your user config directory
+2. export `OPENAI_API_KEY`
+3. keep `default_profile: openai_default`
+4. launch `uv run triad`
+
+That is the lowest-friction setup for a fresh install.
+
 ## The app starts, but it cannot answer anything
 
 Most often, one of these is missing:

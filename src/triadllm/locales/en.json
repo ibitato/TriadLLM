@@ -1,5 +1,6 @@
 {
   "app.title": "TriadLLM",
+  "app.no_profiles": "No provider profiles are configured yet.\nCopy the example file from:\n{sample}\n\nto:\n{target}\n\nThen export the required API keys and restart the app.",
   "app.welcome": "TriadLLM is ready. Generate, validate, and consolidate answers from the terminal.",
   "button.send": "Send",
   "event.error": "Error",

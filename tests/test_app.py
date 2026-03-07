@@ -46,6 +46,30 @@ async def test_app_handles_status_command(tmp_path: Path) -> None:
 
 
 @pytest.mark.anyio
+async def test_app_shows_no_profiles_hint_on_fresh_install(tmp_path: Path) -> None:
+    manager = ConfigManager(root=tmp_path)
+    translator = Translator("en")
+    logger = logging.getLogger("test-app-no-profiles")
+    logger.handlers.clear()
+    logger.addHandler(logging.NullHandler())
+    runtime = TriadRuntime(
+        config_manager=manager,
+        settings=UserSettings(language="en"),
+        profiles={},
+        translator=translator,
+        model_gateway=IdleGateway(),
+        tool_broker=ToolBroker(workspace=tmp_path),
+        logger=logger,
+    )
+    app = TriadApp(runtime=runtime, translator=translator, config_manager=manager)
+
+    async with app.run_test():
+        transcript = app.query_one("#transcript")
+        joined = "\n".join(str(child.render()) for child in transcript.children)
+        assert "No provider profiles are configured yet." in joined
+
+
+@pytest.mark.anyio
 async def test_app_toggles_reasoning_visibility(tmp_path: Path) -> None:
     manager = ConfigManager(root=tmp_path)
     translator = Translator("en")

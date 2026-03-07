@@ -98,6 +98,8 @@ TriadLLM has three fixed roles:
 
 The runtime supports any supported provider family in any role.
 
+If `agent_profiles` is empty, the runtime falls back to `default_profile` for all three roles.
+
 Recommended mental model:
 
 - `processor`: best generation model

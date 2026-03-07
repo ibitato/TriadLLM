@@ -92,6 +92,17 @@ export MISTRAL_API_KEY=...
 
 The app reads provider credentials from the environment. It does not load a `.env` file by itself.
 
+### Fastest first working setup
+
+If you want the shortest path to a first successful run:
+
+1. copy the example `profiles.yaml`
+2. export `OPENAI_API_KEY`
+3. keep the example `default_profile: openai_default`
+4. launch `uv run triad`
+
+That will run all three roles through the same OpenAI profile until you decide to split roles across different providers.
+
 ### 5. Start the app
 
 ```bash
@@ -171,6 +182,7 @@ Use `/permissions ask` or `/permissions yolo` to switch modes at runtime.
 
 - installation guide: [`docs/INSTALLATION.md`](/home/dlopez/code/collabAgent/docs/INSTALLATION.md)
 - configuration reference: [`docs/CONFIGURATION.md`](/home/dlopez/code/collabAgent/docs/CONFIGURATION.md)
+- provider setup examples: [`docs/PROVIDERS.md`](/home/dlopez/code/collabAgent/docs/PROVIDERS.md)
 - architecture guide: [`docs/ARCHITECTURE.md`](/home/dlopez/code/collabAgent/docs/ARCHITECTURE.md)
 - FAQ: [`docs/FAQ.md`](/home/dlopez/code/collabAgent/docs/FAQ.md)
 - coding-agent maintenance guide: [`AGENTS.md`](/home/dlopez/code/collabAgent/AGENTS.md)

@@ -248,6 +248,16 @@ class TriadApp(App[None]):
             self.translator.t("app.welcome"),
             "system",
         )
+        if not self.runtime.profiles:
+            await self._add_block(
+                self.translator.t("event.system"),
+                self.translator.t(
+                    "app.no_profiles",
+                    sample=self.config_manager.sample_profiles_path(),
+                    target=self.config_manager.paths.profiles_path,
+                ),
+                "system",
+            )
         self._apply_visibility_settings()
         self._refresh_status()
 
