@@ -197,6 +197,10 @@ Use `/permissions ask` or `/permissions yolo` to switch modes at runtime.
 - roadmap: [`ROADMAP.md`](./ROADMAP.md)
 - changelog: [`CHANGELOG.md`](./CHANGELOG.md)
 - release process: [`docs/RELEASING.md`](./docs/RELEASING.md)
+- contributing guide: [`CONTRIBUTING.md`](./CONTRIBUTING.md)
+- code of conduct: [`CODE_OF_CONDUCT.md`](./CODE_OF_CONDUCT.md)
+- security policy: [`SECURITY.md`](./SECURITY.md)
+- support guide: [`SUPPORT.md`](./SUPPORT.md)
 - coding-agent maintenance guide: [`AGENTS.md`](./AGENTS.md)
 
 ## Development

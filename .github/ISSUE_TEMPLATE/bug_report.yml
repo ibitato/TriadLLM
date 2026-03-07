@@ -1,0 +1,54 @@
+name: Bug report
+description: Report a reproducible problem in TriadLLM
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. Please include enough detail to reproduce the issue.
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, Python version, and how you launch the app
+      placeholder: Ubuntu 24.04, Python 3.13, uv run triad
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened
+      description: Describe the problem clearly
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      placeholder: |
+        1. Start the app
+        2. Run /models
+        3. Send ...
+    validations:
+      required: true
+  - type: textarea
+    id: config
+    attributes:
+      label: Relevant config or logs
+      description: Remove secrets before pasting
+      render: shell
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I removed secrets and credentials from the report
+          required: true
