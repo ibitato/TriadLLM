@@ -9,6 +9,7 @@ from typing import Any
 from multibrainllm.domain import UserSettings
 
 REDACT_KEYS = {"api_key", "authorization", "token", "secret"}
+TRUNCATE_AT = 800
 
 
 def _redact(value: Any) -> Any:
@@ -16,6 +17,8 @@ def _redact(value: Any) -> Any:
         return {k: ("***" if k.lower() in REDACT_KEYS else _redact(v)) for k, v in value.items()}
     if isinstance(value, list):
         return [_redact(item) for item in value]
+    if isinstance(value, str) and len(value) > TRUNCATE_AT:
+        return f"{value[:TRUNCATE_AT]}...<truncated:{len(value) - TRUNCATE_AT}>"
     return value
 
 

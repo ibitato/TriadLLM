@@ -48,6 +48,17 @@ class MultiBrainRuntime:
         self.pending: PendingClarification | None = None
         self.approval_handler: ApprovalHandler | None = None
         self.session_file = self._new_session_file()
+        self.turn_counter = 0
+        self.logger.info(
+            "runtime_initialized",
+            extra={
+                "language": self.settings.language,
+                "permission_mode": self.settings.permission_mode.value,
+                "default_profile": self.settings.default_profile,
+                "agent_profiles": {role.value: profile for role, profile in self.settings.agent_profiles.items()},
+                "session_file": str(self.session_file),
+            },
+        )
 
     def set_approval_handler(self, handler: ApprovalHandler) -> None:
         self.approval_handler = handler
@@ -56,27 +67,36 @@ class MultiBrainRuntime:
         self.translator.set_language(language)  # type: ignore[arg-type]
         self.settings.language = language  # type: ignore[assignment]
         self.config_manager.save_settings(self.settings)
+        self.logger.info("settings_updated", extra={"field": "language", "value": language})
 
     def set_permission_mode(self, mode: PermissionMode) -> None:
         self.settings.permission_mode = mode
         self.config_manager.save_settings(self.settings)
+        self.logger.info("settings_updated", extra={"field": "permission_mode", "value": mode.value})
 
     def set_reasoning_visibility(self, visible: bool) -> None:
         self.settings.show_reasoning = visible
         self.config_manager.save_settings(self.settings)
+        self.logger.info("settings_updated", extra={"field": "show_reasoning", "value": visible})
 
     def set_default_profile(self, profile_id: str | None) -> None:
         self.settings.default_profile = profile_id
         self.config_manager.save_settings(self.settings)
+        self.logger.info("settings_updated", extra={"field": "default_profile", "value": profile_id})
 
     def set_agent_profile(self, role: AgentRole, profile_id: str) -> None:
         self.settings.agent_profiles[role] = profile_id
         self.config_manager.save_settings(self.settings)
+        self.logger.info(
+            "settings_updated",
+            extra={"field": "agent_profile", "role": role.value, "value": profile_id},
+        )
 
     def reset_conversation(self) -> None:
         self.history = []
         self.pending = None
         self.session_file = self._new_session_file()
+        self.logger.info("conversation_reset", extra={"session_file": str(self.session_file)})
 
     def status(self) -> RuntimeStatus:
         active_profiles = {
@@ -97,6 +117,18 @@ class MultiBrainRuntime:
 
     async def submit_user_message(self, message: str) -> list[SessionEvent]:
         events: list[SessionEvent] = []
+        self.turn_counter += 1
+        turn_id = self.turn_counter
+        self.logger.info(
+            "turn_started",
+            extra={
+                "turn_id": turn_id,
+                "has_pending": self.pending is not None,
+                "message_preview": message[:500],
+                "history_events": len(self.history),
+                "session_file": str(self.session_file),
+            },
+        )
         self._emit(
             events,
             SessionEventKind.USER,
@@ -117,10 +149,25 @@ class MultiBrainRuntime:
                 self.translator.t("event.error"),
                 self.translator.t("system.error", error=str(exc)),
             )
+        self.logger.info(
+            "turn_finished",
+            extra={
+                "turn_id": turn_id,
+                "events_emitted": len(events),
+                "pending_after_turn": self.pending is not None,
+            },
+        )
         return events
 
     async def _run_full_turn(self, message: str, events: list[SessionEvent]) -> None:
         history = self._conversation_context()
+        self.logger.debug(
+            "full_turn_start",
+            extra={
+                "message_preview": message[:500],
+                "conversation_events": len(history),
+            },
+        )
         processor_payload = {
             "user_message": message,
             "conversation": history,
@@ -160,6 +207,15 @@ class MultiBrainRuntime:
         if pending is None:
             return
         self.pending = None
+        self.logger.info(
+            "clarification_resumed",
+            extra={
+                "role": pending.role.value,
+                "question": pending.question,
+                "answer_preview": answer[:500],
+                "prior_tool_results": len(pending.tool_results),
+            },
+        )
 
         clarifications = pending.clarification_answers + [answer]
         response = await self._drive_agent(
@@ -212,12 +268,22 @@ class MultiBrainRuntime:
         tool_results = list(prior_tool_results or [])
         clarifications = list(clarification_answers or [])
 
-        for _ in range(5):
+        for step_index in range(1, 6):
             payload = {
                 **base_payload,
                 "tool_results": [result.model_dump(mode="json") for result in tool_results],
                 "clarification_answers": clarifications,
             }
+            self.logger.debug(
+                "agent_step_start",
+                extra={
+                    "role": role.value,
+                    "step_index": step_index,
+                    "tool_results_count": len(tool_results),
+                    "clarifications_count": len(clarifications),
+                    "payload_summary": self._summarize_payload(payload),
+                },
+            )
             invocation = await self.model_gateway.ainvoke(
                 role=role,
                 schema=AgentResponse,
@@ -225,7 +291,16 @@ class MultiBrainRuntime:
                 payload=payload,
             )
             response = invocation.parsed
-            self.logger.info("agent_response", extra={"role": role.value, "kind": response.kind.value})
+            self.logger.info(
+                "agent_response",
+                extra={
+                    "role": role.value,
+                    "kind": response.kind.value,
+                    "step_index": step_index,
+                    "model_name": invocation.model_name,
+                    "response": response.model_dump(mode="json"),
+                },
+            )
             if invocation.reasoning_summary or invocation.reasoning_tokens:
                 self._emit_reasoning(events, role, invocation.reasoning_summary, invocation.reasoning_tokens, invocation.model_name)
 
@@ -239,6 +314,14 @@ class MultiBrainRuntime:
                     base_payload=base_payload,
                     tool_results=tool_results,
                     clarification_answers=clarifications,
+                )
+                self.logger.info(
+                    "clarification_requested",
+                    extra={
+                        "role": role.value,
+                        "question": response.question or response.message,
+                        "step_index": step_index,
+                    },
                 )
                 title_key = "event.processor_question" if role == AgentRole.PROCESSOR else "event.validator_question"
                 self._emit(
@@ -261,6 +344,14 @@ class MultiBrainRuntime:
                 role=role,
                 metadata=response.tool_request.model_dump(mode="json"),
             )
+            self.logger.info(
+                "tool_request",
+                extra={
+                    "role": role.value,
+                    "step_index": step_index,
+                    "request": response.tool_request.model_dump(mode="json"),
+                },
+            )
             result = await self.tool_broker.execute(
                 response.tool_request,
                 permission_mode=self.settings.permission_mode,
@@ -272,7 +363,10 @@ class MultiBrainRuntime:
                 extra={
                     "role": role.value,
                     "tool": response.tool_request.tool,
+                    "step_index": step_index,
                     "success": result.success,
+                    "output_preview": result.output[:800],
+                    "error_preview": result.error[:800],
                     "metadata": result.metadata,
                 },
             )
@@ -293,6 +387,14 @@ class MultiBrainRuntime:
         validator_output: str,
         events: list[SessionEvent],
     ) -> None:
+        self.logger.debug(
+            "finalize_turn_start",
+            extra={
+                "message_preview": message[:500],
+                "processor_output_preview": processor_output[:500],
+                "validator_output_preview": validator_output[:500],
+            },
+        )
         final_invocation = await self.model_gateway.ainvoke(
             role=AgentRole.ORCHESTRATOR,
             schema=ConsolidatedResponse,
@@ -306,6 +408,13 @@ class MultiBrainRuntime:
             },
         )
         final = final_invocation.parsed
+        self.logger.info(
+            "orchestrator_finalized",
+            extra={
+                "model_name": final_invocation.model_name,
+                "final_summary": self._summarize_payload(final.model_dump(mode="json")),
+            },
+        )
         if final_invocation.reasoning_summary or final_invocation.reasoning_tokens:
             self._emit_reasoning(
                 events,
@@ -355,6 +464,16 @@ class MultiBrainRuntime:
         event = SessionEvent(kind=kind, title=title, body=body, role=role, metadata=metadata or {})
         collector.append(event)
         self.history.append(event)
+        self.logger.debug(
+            "event_emitted",
+            extra={
+                "kind": kind.value,
+                "role": role.value if role else None,
+                "title": title,
+                "body_preview": body[:800],
+                "metadata": metadata or {},
+            },
+        )
         self._persist_event(event)
 
     def _persist_event(self, event: SessionEvent) -> None:
@@ -392,3 +511,19 @@ class MultiBrainRuntime:
     def _new_session_file(self) -> Path:
         timestamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
         return Path(self.config_manager.paths.sessions_dir) / f"session-{timestamp}.jsonl"
+
+    def _summarize_payload(self, payload: Any) -> Any:
+        if isinstance(payload, dict):
+            summarized: dict[str, Any] = {}
+            for key, value in payload.items():
+                if isinstance(value, str):
+                    summarized[key] = value[:300]
+                elif isinstance(value, list):
+                    summarized[key] = {
+                        "count": len(value),
+                        "preview": value[:2],
+                    }
+                else:
+                    summarized[key] = value
+            return summarized
+        return payload

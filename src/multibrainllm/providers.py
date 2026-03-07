@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 from typing import Any, Protocol
 from urllib.parse import urlparse
@@ -39,6 +40,7 @@ class ProviderGateway:
         self.settings = settings
         self._openai_clients: dict[str, AsyncOpenAI] = {}
         self._mistral_clients: dict[str, Mistral] = {}
+        self.logger = logging.getLogger("multibrainllm.providers")
 
     def profile_for_role(self, role: AgentRole) -> ProviderProfile:
         profile_id = self.settings.agent_profiles.get(role) or self.settings.default_profile
@@ -58,6 +60,17 @@ class ProviderGateway:
     ) -> ModelInvocationResult[SchemaT]:
         profile = self.profile_for_role(role)
         backend = self._backend_for_profile(profile)
+        self.logger.debug(
+            "provider_invoke_start",
+            extra={
+                "role": role.value,
+                "profile_id": profile.id,
+                "backend": backend.value,
+                "model": profile.model,
+                "schema": schema.__name__,
+                "payload_summary": self._summarize_payload(payload),
+            },
+        )
         return await self._ainvoke_with_repair(
             backend=backend,
             profile=profile,
@@ -77,6 +90,17 @@ class ProviderGateway:
         try:
             return await self._ainvoke_once(backend, profile, schema, system_prompt, payload)
         except Exception as exc:
+            self.logger.warning(
+                "provider_invoke_parse_failure",
+                extra={
+                    "profile_id": profile.id,
+                    "backend": backend.value,
+                    "model": profile.model,
+                    "schema": schema.__name__,
+                    "error": str(exc),
+                    "payload_summary": self._summarize_payload(payload),
+                },
+            )
             repair_prompt = self._build_repair_prompt(system_prompt, schema)
             repaired_payload = {
                 "original_payload": payload,
@@ -101,6 +125,16 @@ class ProviderGateway:
         payload: dict[str, Any],
         repair_mode: bool = False,
     ) -> ModelInvocationResult[SchemaT]:
+        self.logger.debug(
+            "provider_invoke_attempt",
+            extra={
+                "profile_id": profile.id,
+                "backend": backend.value,
+                "model": profile.model,
+                "schema": schema.__name__,
+                "repair_mode": repair_mode,
+            },
+        )
         if backend == ProviderBackend.MISTRAL:
             return await self._ainvoke_mistral_chat(profile, schema, system_prompt, payload, repair_mode=repair_mode)
         if backend == ProviderBackend.OPENAI and profile.reasoning_summary and not repair_mode:
@@ -192,6 +226,17 @@ class ProviderGateway:
         usage = response.usage
         if usage and usage.output_tokens_details:
             reasoning_tokens = usage.output_tokens_details.reasoning_tokens
+        self.logger.debug(
+            "provider_invoke_success",
+            extra={
+                "profile_id": profile.id,
+                "backend": ProviderBackend.OPENAI.value,
+                "model": response.model,
+                "schema": schema.__name__,
+                "reasoning_tokens": reasoning_tokens,
+                "parsed_summary": self._summarize_payload(parsed.model_dump(mode="json")),
+            },
+        )
 
         return ModelInvocationResult(
             parsed=parsed,
@@ -237,6 +282,19 @@ class ProviderGateway:
             parsed = self._fallback_consolidated_response(payload)
         else:
             parsed = self._parse_json_output(content, schema)
+        self.logger.debug(
+            "provider_invoke_success",
+            extra={
+                "profile_id": profile.id,
+                "backend": backend.value,
+                "model": data.get("model"),
+                "schema": schema.__name__,
+                "repair_mode": repair_mode,
+                "reasoning_chunks": len(reasoning_summary),
+                "raw_content_preview": content[:800],
+                "parsed_summary": self._summarize_payload(parsed.model_dump(mode="json")),
+            },
+        )
 
         return ModelInvocationResult(
             parsed=parsed,
@@ -270,6 +328,19 @@ class ProviderGateway:
         message = data["choices"][0]["message"]
         final_text, thinking_chunks = self._extract_mistral_message_parts(message.get("content"))
         parsed = self._parse_json_output(final_text, schema)
+        self.logger.debug(
+            "provider_invoke_success",
+            extra={
+                "profile_id": profile.id,
+                "backend": ProviderBackend.MISTRAL.value,
+                "model": data.get("model"),
+                "schema": schema.__name__,
+                "repair_mode": repair_mode,
+                "thinking_chunks": len(thinking_chunks),
+                "raw_content_preview": final_text[:800],
+                "parsed_summary": self._summarize_payload(parsed.model_dump(mode="json")),
+            },
+        )
 
         return ModelInvocationResult(
             parsed=parsed,
@@ -485,3 +556,28 @@ class ProviderGateway:
             validator_view=validator_output or ("Sin salida del Validator." if language == "es" else "No Validator output."),
             synthesis=synthesis,
         )
+
+    def _summarize_payload(self, payload: Any) -> Any:
+        if isinstance(payload, dict):
+            summarized: dict[str, Any] = {}
+            for key, value in payload.items():
+                if key == "conversation" and isinstance(value, list):
+                    summarized[key] = {
+                        "count": len(value),
+                        "last_kind": value[-1].get("kind") if value else None,
+                    }
+                    continue
+                if key == "tool_results" and isinstance(value, list):
+                    summarized[key] = {
+                        "count": len(value),
+                        "last_tool": value[-1].get("tool") if value else None,
+                    }
+                    continue
+                if isinstance(value, str):
+                    summarized[key] = value[:300]
+                    continue
+                summarized[key] = self._summarize_payload(value)
+            return summarized
+        if isinstance(payload, list):
+            return [self._summarize_payload(item) for item in payload[:5]]
+        return payload
