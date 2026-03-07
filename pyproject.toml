@@ -1,7 +1,7 @@
 [project]
 name = "multibrainllm"
 version = "0.1.0"
-description = "Multi-agent terminal UI for OpenAI, Mistral, and OpenAI-compatible LLMs."
+description = "Terminal UI for proposal-validation-consolidation LLM workflows across OpenAI, Mistral, and compatible backends."
 readme = "README.md"
 authors = [
     { name = "David R. Lopez B", email = "ibitato@gmail.com" }

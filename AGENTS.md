@@ -4,11 +4,11 @@
 
 This file is a working guide for coding agents that modify, maintain, test, or document `MultiBrainLLM`.
 
-The project is a Python `3.13` terminal application with a `Textual` TUI and a three-agent runtime:
+The project is a Python `3.13` terminal application with a `Textual` TUI and a three-agent runtime built around a proposal-validation-consolidation workflow:
 
-- `orchestrator`: final user-facing synthesis
-- `processor`: primary reasoning / execution planning
-- `validator`: contrast, verification, correction
+- `processor`: primary answer generation / execution planning
+- `validator`: validation, correction, and evidence gathering against the original user request and processor output
+- `orchestrator`: final user-facing consolidation
 
 The codebase is designed around:
 
@@ -41,7 +41,7 @@ Main modules:
   TUI, slash commands, transcript rendering, permission modal, reasoning visibility.
 
 - `src/multibrainllm/runtime.py`
-  Turn orchestration, clarification resume flow, agent loop, event emission, session persistence.
+  Turn orchestration, clarification resume flow, proposal-validation loop, event emission, session persistence.
 
 - `src/multibrainllm/providers.py`
   Provider abstraction, official OpenAI/Mistral SDK usage, OpenAI-compatible local backends, repair/fallback logic.
@@ -82,6 +82,14 @@ For `AgentResponse`, an agent may only:
 
 Do not replace this with ad hoc string parsing or free-form tool intents.
 
+Behavioral intent:
+
+- the `processor` proposes the primary answer
+- the `validator` checks that answer against the user request and gathered evidence
+- the `orchestrator` consolidates both into the user-facing reply
+
+Do not drift this into "two parallel independent opinions" unless the user explicitly requests that architecture.
+
 
 ## Provider Integration Rules
 
@@ -118,6 +126,7 @@ Requirements:
 
 - be explicit about allowed actions
 - enforce schema compliance
+- reinforce the intended workflow: proposal, validation, consolidation
 - tell the model which tools exist
 - document expected arguments for each tool
 - explain when to prefer one tool over another
@@ -173,6 +182,7 @@ Do not break these properties:
 - every agent receives the full visible conversation context for each iteration
 - clarifications pause and resume cleanly
 - tool requests are iterative, not terminal
+- the validator always receives both the original user task and the processor answer
 - the orchestrator always produces the final user-facing consolidated response
 - the transcript and session log remain analyzable after the run
 

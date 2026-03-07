@@ -1,20 +1,26 @@
 # MultiBrainLLM
 
-`MultiBrainLLM` is a terminal chat application that routes each user turn through three LLM agents:
+`MultiBrainLLM` is a terminal chat application that runs each user turn through a three-stage LLM workflow:
 
-- `orchestrator`: user-facing agent, final synthesis, permission mediation
-- `processor`: primary reasoning agent
-- `validator`: review and contrast agent
+- `processor`: produces the primary answer
+- `validator`: validates that answer against the original user request and any gathered evidence
+- `orchestrator`: presents the final consolidated response to the user
 
 The interface is built with `Textual`, uses the official OpenAI and Mistral SDKs where available, and supports OpenAI-compatible local providers such as `GLM-4.7-Flash` on `localhost`.
+
+This is not a system of two independent parallel opinions. The intended behavior is:
+
+- generate an answer
+- validate it against the original request
+- consolidate the proposal and validation into one final reply
 
 ## Architecture
 
 Each user turn runs through this pipeline:
 
-1. `processor` receives the user message plus the full visible conversation history.
-2. `validator` reviews the processor output plus the same visible conversation.
-3. `orchestrator` consolidates both outputs into the final answer shown in the TUI.
+1. `processor` receives the user message plus the full visible conversation history and proposes the primary answer.
+2. `validator` receives the original user message, the same visible conversation, and the processor output. It verifies, challenges, corrects, or requests evidence.
+3. `orchestrator` receives the processor proposal and the validator review, then presents the final consolidated answer shown in the TUI.
 
 If `processor` or `validator` asks for more data, the runtime pauses, surfaces the clarification to the user, captures the answer, and resumes from the pending stage.
 
@@ -22,7 +28,7 @@ If `processor` or `validator` asks for more data, the runtime pauses, surfaces t
 
 - Retro-styled TUI inspired by modern coding CLIs
 - Scrollable transcript with fixed bottom composer
-- Three-agent pipeline with consolidated final response
+- Three-stage proposal, validation, and consolidation pipeline
 - User clarification loop when processor or validator needs more data
 - Full visible conversation history is passed back to every agent on each turn
 - Local tools with `ask` and `yolo` permission modes
@@ -150,6 +156,8 @@ Execution rules:
 ## Runtime Notes
 
 - The visible transcript is the conversation context used for each new turn.
+- The validator is a grounded review stage, not an independent second solver.
+- The orchestrator is the final presentation layer: it does not replace validation, it packages the processor proposal and validator review for the user.
 - `/new` starts a fresh conversation and rotates the session file.
 - `/clear` clears the rendered transcript only; it does not reset the runtime state.
 - Reasoning visibility affects display only; it does not change what is logged or sent to providers.
