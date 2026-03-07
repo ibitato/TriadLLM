@@ -18,6 +18,55 @@ AVAILABLE_TOOLS = (
     "pwd",
 )
 
+TOOL_GUIDANCE = """
+Tool reference:
+- `pwd`
+  Use when you need the current workspace path.
+  Arguments: `{}`
+
+- `list_dir`
+  Use to confirm whether a file or directory exists in a known path, or to inspect directory contents.
+  Arguments: `{"path": "."}` where `path` is optional and defaults to the workspace.
+  Prefer this for file-existence checks before using broader searches.
+
+- `read_file`
+  Use to inspect the contents of a specific file after you know its path.
+  Arguments: `{"path": "README.md", "limit": 4000}`
+  `path` is required. `limit` is optional.
+
+- `search_files`
+  Use to search file contents for a text query across a directory tree.
+  Arguments: `{"query": "README", "path": "."}`
+  `query` is required and must be non-empty. `path` is optional.
+  Do not use this to ask "does file X exist?" when `list_dir` or `read_file` is a better fit.
+
+- `get_env`
+  Use only for allowlisted environment variables when they are necessary.
+  Arguments: `{"key": "PATH"}`
+
+- `shell_exec`
+  Use only when filesystem tools are insufficient and a shell command is truly required.
+  Arguments: `{"command": "git status", "cwd": ".", "timeout": 60}`
+  `command` is required. `cwd` and `timeout` are optional.
+
+- `write_file`
+  Use only when the task explicitly requires creating or modifying a file.
+  Arguments: `{"path": "notes.txt", "content": "example"}`
+  `path` and `content` are required.
+""".strip()
+
+TOOL_USAGE_RULES = """
+Tool usage rules:
+- Request at most one tool per step.
+- Choose the narrowest tool that can answer the question.
+- If you need to verify whether a file exists, prefer `list_dir` first.
+- If you need to search text inside files, use `search_files` and always provide a non-empty `query`.
+- If a tool call fails, read the error and change strategy. Do not repeat the same invalid tool request.
+- If a previous tool result already answers the question, stop using tools and return `final`.
+- If the missing information is not discoverable with the available tools, use `ask_user`.
+- Never invent tool names or argument shapes.
+""".strip()
+
 
 def build_agent_prompt(role: AgentRole, language: LanguageCode) -> str:
     target_language = LANGUAGE_NAMES[language]
@@ -39,8 +88,14 @@ Rules:
 - Request tools only when they provide necessary evidence or perform a required operation.
 - If you request a tool, the tool name must be exactly one of: {tools_list}.
 - Never invent tool names. If none of those tools fit, ask the user instead.
+- Use the tool reference and tool usage rules below exactly.
+- The payload may include prior `tool_results` and `clarification_answers`. Use them before requesting another tool.
 - When producing a final answer, write in {target_language}.
 - Always respect the response schema exactly.
+
+{TOOL_GUIDANCE}
+
+{TOOL_USAGE_RULES}
 """.strip()
 
     if role == AgentRole.VALIDATOR:
@@ -59,8 +114,15 @@ Rules:
 - Request tools only when verification materially improves the answer.
 - If you request a tool, the tool name must be exactly one of: {tools_list}.
 - Never invent tool names. If none of those tools fit, ask the user instead.
+- Use the tool reference and tool usage rules below exactly.
+- The payload may include prior `tool_results` and `clarification_answers`. Use them before requesting another tool.
+- Prefer verifying the most important uncertainty first, not broad exploration.
 - When producing a final answer, write in {target_language}.
 - Always respect the response schema exactly.
+
+{TOOL_GUIDANCE}
+
+{TOOL_USAGE_RULES}
 """.strip()
 
     return f"""
