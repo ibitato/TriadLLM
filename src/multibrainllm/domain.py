@@ -50,6 +50,7 @@ class ProviderProfile(BaseModel):
     temperature: float = 0.2
     timeout: float = 60.0
     max_tokens: int | None = None
+    reasoning_effort: str | None = None
     default_headers: dict[str, str] = Field(default_factory=dict)
 
 

@@ -13,6 +13,7 @@ profiles:
     base_url: https://example.com/v1
     model: demo-model
     api_key_env: DEMO_KEY
+    reasoning_effort: medium
 """,
         encoding="utf-8",
     )
@@ -21,3 +22,4 @@ profiles:
 
     assert profiles["demo"].id == "demo"
     assert profiles["demo"].model == "demo-model"
+    assert profiles["demo"].reasoning_effort == "medium"

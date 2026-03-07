@@ -9,3 +9,31 @@ profiles:
     temperature: 0.2
     timeout: 60
     max_tokens: 1800
+
+  orchestrator_mistral_medium_latest:
+    label: Mistral Medium Latest
+    base_url: https://api.mistral.ai/v1
+    model: mistral-medium-latest
+    api_key_env: MISTRAL_API_KEY
+    temperature: 0.2
+    timeout: 60
+    max_tokens: 1800
+
+  processor_gpt54_medium:
+    label: GPT-5.4 Medium
+    base_url: https://api.openai.com/v1
+    model: gpt-5.4
+    api_key_env: OPENAI_API_KEY
+    temperature: 0.2
+    timeout: 60
+    max_tokens: 2400
+    reasoning_effort: medium
+
+  validator_mistral_large_latest:
+    label: Mistral Large Latest
+    base_url: https://api.mistral.ai/v1
+    model: mistral-large-latest
+    api_key_env: MISTRAL_API_KEY
+    temperature: 0.1
+    timeout: 60
+    max_tokens: 1800

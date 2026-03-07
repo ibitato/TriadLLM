@@ -54,6 +54,7 @@ class LangChainGateway:
             temperature=profile.temperature,
             timeout=profile.timeout,
             max_tokens=profile.max_tokens,
+            reasoning_effort=profile.reasoning_effort,
             default_headers=profile.default_headers or None,
         )
         self._clients[profile.id] = client
