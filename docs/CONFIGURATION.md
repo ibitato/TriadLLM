@@ -7,8 +7,8 @@ TriadLLM uses two main user-managed files:
 
 The repository also includes examples:
 
-- [`src/triadllm/examples/settings.json`](/home/dlopez/code/collabAgent/src/triadllm/examples/settings.json)
-- [`src/triadllm/examples/profiles.yaml`](/home/dlopez/code/collabAgent/src/triadllm/examples/profiles.yaml)
+- [`src/triadllm/examples/settings.json`](../src/triadllm/examples/settings.json)
+- [`src/triadllm/examples/profiles.yaml`](../src/triadllm/examples/profiles.yaml)
 
 ## Config Locations
 

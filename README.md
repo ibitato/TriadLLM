@@ -1,24 +1,29 @@
 # TriadLLM
 
-`TriadLLM` is a terminal chat application for multi-stage LLM work. Each user turn follows a fixed workflow:
+[![Python 3.13+](https://img.shields.io/badge/python-3.13%2B-306998.svg)](https://www.python.org/)
+[![TUI Textual](https://img.shields.io/badge/ui-Textual-2ec4b6.svg)](https://textual.textualize.io/)
+[![Providers OpenAI Mistral Compatible](https://img.shields.io/badge/providers-OpenAI%20%7C%20Mistral%20%7C%20Compatible-ff9f1c.svg)](#provider-setups)
+[![License PolyForm Noncommercial](https://img.shields.io/badge/license-PolyForm%20Noncommercial-red.svg)](./LICENSE)
+
+`TriadLLM` is a terminal chat application for multi-stage LLM work.
+
+Each user turn follows a fixed workflow:
 
 1. `processor` generates the primary answer
 2. `validator` checks that answer against the original request and gathered evidence
 3. `orchestrator` consolidates both into the final user-facing reply
 
-The project uses:
-
-- `Textual` for the TUI
-- official OpenAI and Mistral SDKs where possible
-- an OpenAI-compatible backend for local servers such as `GLM-4.7-Flash`
-- a shared structured JSON protocol for agent actions
-- a central tool broker with `ask` and `yolo` permission modes
-
 The repository language is English, and fresh installs default to English in the app. Spanish is also supported at runtime with `/lang es`.
+
+## Preview
+
+![TriadLLM UI preview](./docs/assets/triadllm-ui.svg)
 
 ## What TriadLLM Is
 
-TriadLLM is not a “two independent opinions” system. The intended workflow is:
+TriadLLM is not a "two independent opinions" system.
+
+The intended workflow is:
 
 - generate a primary answer
 - validate it against the original request
@@ -29,17 +34,19 @@ That makes the second model a grounded review layer rather than a second paralle
 ## Features
 
 - scrollable transcript with fixed bottom composer
-- three-stage proposal, validation, and consolidation flow
+- proposal, validation, and consolidation pipeline
 - full visible conversation history passed back to agents on each turn
 - clarification loop when the processor or validator needs more data
 - local tools with permission prompts
 - toggleable reasoning display with `/reasoning on|off`
-- toggleable tool-request/result display with `/toolresults on|off`
+- toggleable tool request/result display with `/toolresults on|off`
 - slash commands for runtime control
 - JSONL session persistence
 - structured rotating logs
 - English and Spanish locales
 - Python `3.13` environment managed with `uv`
+- official OpenAI and Mistral SDKs where possible
+- OpenAI-compatible local backend support
 
 ## Quick Start
 
@@ -60,13 +67,15 @@ uv sync
 
 ### 3. Prepare provider configuration
 
-Run the app once to create the config directories:
+Run the app once to create the local config directories:
 
 ```bash
 uv run triad
 ```
 
-Then copy the example profile file into your user config directory:
+Then copy the example profile file into your user config directory.
+
+Typical locations:
 
 - Linux: `~/.config/TriadLLM/profiles.yaml`
 - macOS: `~/Library/Application Support/TriadLLM/profiles.yaml`
@@ -79,8 +88,6 @@ mkdir -p ~/.config/TriadLLM
 cp src/triadllm/examples/profiles.yaml ~/.config/TriadLLM/profiles.yaml
 ```
 
-If you want to inspect the active paths later, use `/config` inside the app.
-
 ### 4. Export API keys
 
 Examples:
@@ -90,18 +97,7 @@ export OPENAI_API_KEY=...
 export MISTRAL_API_KEY=...
 ```
 
-The app reads provider credentials from the environment. It does not load a `.env` file by itself.
-
-### Fastest first working setup
-
-If you want the shortest path to a first successful run:
-
-1. copy the example `profiles.yaml`
-2. export `OPENAI_API_KEY`
-3. keep the example `default_profile: openai_default`
-4. launch `uv run triad`
-
-That will run all three roles through the same OpenAI profile until you decide to split roles across different providers.
+TriadLLM reads credentials from the shell environment. It does not auto-load `.env`.
 
 ### 5. Start the app
 
@@ -115,9 +111,20 @@ Alternative entrypoint:
 uv run triadllm
 ```
 
+## Fastest First Working Setup
+
+If you want the shortest path to a first successful run:
+
+1. copy the example `profiles.yaml`
+2. export `OPENAI_API_KEY`
+3. keep the example `default_profile: openai_default`
+4. launch `uv run triad`
+
+That runs all three roles through the same OpenAI profile until you decide to split roles across different providers.
+
 ## First-Run Checklist
 
-After cloning the repo, a new user should verify:
+After cloning the repo, verify:
 
 - Python `3.13` is installed with `uv`
 - `uv sync` completed successfully
@@ -140,8 +147,8 @@ On first launch, TriadLLM automatically reuses legacy local config from `MultiBr
 
 Repository examples:
 
-- sample profiles: [`src/triadllm/examples/profiles.yaml`](/home/dlopez/code/collabAgent/src/triadllm/examples/profiles.yaml)
-- sample settings: [`src/triadllm/examples/settings.json`](/home/dlopez/code/collabAgent/src/triadllm/examples/settings.json)
+- sample profiles: [`src/triadllm/examples/profiles.yaml`](./src/triadllm/examples/profiles.yaml)
+- sample settings: [`src/triadllm/examples/settings.json`](./src/triadllm/examples/settings.json)
 
 ## Tools and Permissions
 
@@ -180,19 +187,22 @@ Use `/permissions ask` or `/permissions yolo` to switch modes at runtime.
 
 ## Documentation
 
-- installation guide: [`docs/INSTALLATION.md`](/home/dlopez/code/collabAgent/docs/INSTALLATION.md)
-- configuration reference: [`docs/CONFIGURATION.md`](/home/dlopez/code/collabAgent/docs/CONFIGURATION.md)
-- provider setup examples: [`docs/PROVIDERS.md`](/home/dlopez/code/collabAgent/docs/PROVIDERS.md)
-- architecture guide: [`docs/ARCHITECTURE.md`](/home/dlopez/code/collabAgent/docs/ARCHITECTURE.md)
-- FAQ: [`docs/FAQ.md`](/home/dlopez/code/collabAgent/docs/FAQ.md)
-- coding-agent maintenance guide: [`AGENTS.md`](/home/dlopez/code/collabAgent/AGENTS.md)
+- installation guide: [`docs/INSTALLATION.md`](./docs/INSTALLATION.md)
+- configuration reference: [`docs/CONFIGURATION.md`](./docs/CONFIGURATION.md)
+- provider setup examples: [`docs/PROVIDERS.md`](./docs/PROVIDERS.md)
+- architecture guide: [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md)
+- troubleshooting guide: [`docs/TROUBLESHOOTING.md`](./docs/TROUBLESHOOTING.md)
+- FAQ: [`docs/FAQ.md`](./docs/FAQ.md)
+- roadmap: [`ROADMAP.md`](./ROADMAP.md)
+- changelog: [`CHANGELOG.md`](./CHANGELOG.md)
+- coding-agent maintenance guide: [`AGENTS.md`](./AGENTS.md)
 
 ## Development
 
 ```bash
 uv sync --dev
 uv run pytest -q
-uv run python -m compileall src tests
+uv run python -m compileall src tests docs
 uv build
 ```
 
