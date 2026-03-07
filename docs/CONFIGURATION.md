@@ -124,6 +124,7 @@ These slash commands update runtime settings during a session:
 - `/model set <role> <profile>`
 - `/reasoning on|off`
 - `/toolresults on|off`
+- `/cancel`
 
 Changes are persisted back to `settings.json`.
 
@@ -133,6 +134,8 @@ Keyboard controls for the composer:
 - `Ctrl+J` inserts a newline in the bottom composer
 - `Ctrl+E` opens the expanded composer modal
 - in the expanded composer, `Ctrl+S` sends and `Esc` cancels
+- while a turn is busy, new non-command prompts are queued and processed in order
+- the `Cancel` button and `/cancel` stop the active turn; queued turns continue afterward
 
 ## Migration From `MultiBrainLLM`
 

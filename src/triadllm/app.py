@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import shlex
+from collections import deque
 
 from textual import events, on
 from textual.app import App, ComposeResult
 from textual.containers import CenterMiddle, Container, Horizontal, VerticalScroll
 from textual.message import Message
 from textual.screen import ModalScreen
+from textual.worker import Worker
 from textual.widgets import Button, Static, TextArea
 
 from triadllm.config import ConfigManager
@@ -288,6 +290,12 @@ class TriadApp(App[None]):
         color: #111111;
     }
 
+    #cancel-turn {
+        width: 10;
+        height: 5;
+        margin-left: 1;
+    }
+
     #statusbar {
         height: 1;
         min-height: 1;
@@ -352,6 +360,8 @@ class TriadApp(App[None]):
         self.translator = translator
         self.config_manager = config_manager
         self.busy = False
+        self.pending_inputs: deque[str] = deque()
+        self.turn_worker: Worker[None] | None = None
 
     def compose(self) -> ComposeResult:
         with Container(id="root"):
@@ -367,6 +377,7 @@ class TriadApp(App[None]):
                     placeholder="",
                 )
                 yield Button("", id="send")
+                yield Button("", id="cancel-turn")
             yield Static(id="statusbar")
 
     async def on_mount(self) -> None:
@@ -421,9 +432,29 @@ class TriadApp(App[None]):
         composer = self.query_one("#composer", ComposerArea)
         await self._dispatch_input(composer.text)
 
+    @on(Button.Pressed, "#cancel-turn")
+    async def handle_cancel_turn(self) -> None:
+        await self._cancel_active_turn()
+
     async def _dispatch_input(self, raw: str) -> None:
         text = raw.strip()
-        if not text or self.busy:
+        if not text:
+            return
+
+        if self.busy and not text.startswith("/"):
+            composer = self.query_one("#composer", ComposerArea)
+            composer.load_text("")
+            self.pending_inputs.append(text)
+            await self._add_block(
+                self.translator.t("event.system"),
+                self.translator.t("queue.enqueued", count=len(self.pending_inputs)),
+                "system",
+            )
+            self.runtime.logger.info(
+                "message_queued",
+                extra={"queued_count": len(self.pending_inputs), "message_preview": text[:500]},
+            )
+            self._refresh_status()
             return
 
         composer = self.query_one("#composer", ComposerArea)
@@ -433,16 +464,7 @@ class TriadApp(App[None]):
             await self._handle_command(text)
             return
 
-        self.busy = True
-        self._refresh_status()
-        self.run_worker(
-            self._run_user_turn(text),
-            name="chat-turn",
-            group="chat-turn",
-            exclusive=True,
-            exit_on_error=False,
-            thread=False,
-        )
+        self._start_turn_worker(text)
 
     async def _run_user_turn(self, text: str) -> None:
         try:
@@ -458,7 +480,9 @@ class TriadApp(App[None]):
             )
         finally:
             self.busy = False
+            self.turn_worker = None
             self._refresh_status()
+            self.call_after_refresh(self._start_next_queued_turn)
 
     async def _handle_command(self, raw: str) -> None:
         parts = shlex.split(raw)
@@ -538,6 +562,9 @@ class TriadApp(App[None]):
         elif command == "/clear":
             self.query_one("#transcript", VerticalScroll).remove_children()
             body = self.translator.t("slash.clear")
+        elif command == "/cancel":
+            cancelled = await self._cancel_active_turn()
+            body = self.translator.t("slash.cancel.changed" if cancelled else "slash.cancel.idle")
         elif command == "/quit":
             self.exit()
             return
@@ -587,6 +614,7 @@ class TriadApp(App[None]):
     def _refresh_chrome(self) -> None:
         self.query_one("#composer", ComposerArea).placeholder = self.translator.t("input.placeholder")
         self.query_one("#send", Button).label = self.translator.t("button.send")
+        self.query_one("#cancel-turn", Button).label = self.translator.t("button.cancel")
         self.title = self.translator.t("app.title")
         self.sub_title = "Multi-agent terminal"
         self._apply_visibility_settings()
@@ -598,6 +626,8 @@ class TriadApp(App[None]):
         default_profile = status.default_profile or self.translator.t("status.none")
         if len(default_profile) > 28:
             default_profile = f"{default_profile[:25]}..."
+        cancel_button = self.query_one("#cancel-turn", Button)
+        cancel_button.disabled = not self.busy
         self.query_one("#statusbar", Static).update(
             self.translator.t(
                 "status.line",
@@ -607,6 +637,7 @@ class TriadApp(App[None]):
                 profile=default_profile,
                 reasoning=self.translator.t("status.on") if status.show_reasoning else self.translator.t("status.off"),
                 tools=self.translator.t("status.on") if status.show_tool_results else self.translator.t("status.off"),
+                queued=len(self.pending_inputs),
             )
         )
 
@@ -637,6 +668,45 @@ class TriadApp(App[None]):
                 child.set_class(not self.runtime.settings.show_reasoning, "is-hidden")
             if isinstance(child, ChatBlock) and child.kind == "tool":
                 child.set_class(not self.runtime.settings.show_tool_results, "is-hidden")
+
+    def _start_turn_worker(self, text: str) -> None:
+        self.busy = True
+        self._refresh_status()
+        self.turn_worker = self.run_worker(
+            self._run_user_turn(text),
+            name="chat-turn",
+            group="chat-turn",
+            exclusive=True,
+            exit_on_error=False,
+            thread=False,
+        )
+
+    def _start_next_queued_turn(self) -> None:
+        if self.busy or not self.pending_inputs:
+            self._refresh_status()
+            return
+        next_message = self.pending_inputs.popleft()
+        self.runtime.logger.info(
+            "message_dequeued",
+            extra={"queued_count_after_pop": len(self.pending_inputs), "message_preview": next_message[:500]},
+        )
+        self._start_turn_worker(next_message)
+
+    async def _cancel_active_turn(self) -> bool:
+        worker = self.turn_worker
+        if worker is None or worker.is_finished:
+            return False
+        worker.cancel()
+        self.runtime.logger.info(
+            "turn_cancel_requested",
+            extra={"queued_count": len(self.pending_inputs)},
+        )
+        await self._add_block(
+            self.translator.t("event.system"),
+            self.translator.t("queue.cancelled"),
+            "system",
+        )
+        return True
 
     def _describe_profile(self, profile_id: str | None) -> str:
         if profile_id is None:

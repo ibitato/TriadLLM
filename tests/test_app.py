@@ -40,6 +40,35 @@ class ScriptedGateway:
         return response
 
 
+class BlockingGateway:
+    def __init__(self) -> None:
+        self.first_started = asyncio.Event()
+        self.release_first = asyncio.Event()
+        self.processor_messages: list[str] = []
+
+    async def ainvoke(self, role, schema, system_prompt, payload):  # noqa: ANN001, ANN201
+        if role == AgentRole.PROCESSOR:
+            message = payload["user_message"]
+            self.processor_messages.append(message)
+            if len(self.processor_messages) == 1:
+                self.first_started.set()
+                await self.release_first.wait()
+            return ModelInvocationResult(
+                parsed=AgentResponse(kind=AgentActionKind.FINAL, message=f"Processor handled: {message}")
+            )
+        if role == AgentRole.VALIDATOR:
+            return ModelInvocationResult(
+                parsed=AgentResponse(kind=AgentActionKind.FINAL, message=f"Validator checked: {payload['processor_answer']}")
+            )
+        return ModelInvocationResult(
+            parsed=ConsolidatedResponse(
+                processor_view=payload["processor_output"],
+                validator_view=payload["validator_output"],
+                synthesis=f"Final answer for: {payload['user_message']}",
+            )
+        )
+
+
 @pytest.mark.anyio
 async def test_app_handles_status_command(tmp_path: Path) -> None:
     manager = ConfigManager(root=tmp_path)
@@ -419,3 +448,82 @@ async def test_editor_send_dispatches_through_normal_pipeline(tmp_path: Path) ->
         transcript = app.query_one("#transcript")
         joined = "\n".join(str(child.render()) for child in transcript.children)
         assert "Final answer" in joined
+
+
+@pytest.mark.anyio
+async def test_busy_messages_are_queued_and_run_in_order(tmp_path: Path) -> None:
+    manager = ConfigManager(root=tmp_path)
+    translator = Translator("en")
+    logger = logging.getLogger("test-app-queue")
+    logger.handlers.clear()
+    logger.addHandler(logging.NullHandler())
+    gateway = BlockingGateway()
+    runtime = TriadRuntime(
+        config_manager=manager,
+        settings=UserSettings(language="en"),
+        profiles={},
+        translator=translator,
+        model_gateway=gateway,
+        tool_broker=ToolBroker(workspace=tmp_path),
+        logger=logger,
+    )
+    app = TriadApp(runtime=runtime, translator=translator, config_manager=manager)
+
+    async with app.run_test() as pilot:
+        await app._dispatch_input("first request")
+        await asyncio.wait_for(gateway.first_started.wait(), timeout=2)
+        await app._dispatch_input("second request")
+        assert list(app.pending_inputs) == ["second request"]
+        transcript = app.query_one("#transcript")
+        joined = "\n".join(str(child.render()) for child in transcript.children)
+        assert "Message queued. Pending turns: 1." in joined
+
+        gateway.release_first.set()
+        for _ in range(5):
+            await pilot.pause()
+            if gateway.processor_messages == ["first request", "second request"]:
+                break
+
+        joined = "\n".join(str(child.render()) for child in transcript.children)
+        assert gateway.processor_messages == ["first request", "second request"]
+        assert "Final answer for: first request" in joined
+        assert "Final answer for: second request" in joined
+
+
+@pytest.mark.anyio
+async def test_cancel_button_cancels_current_turn_and_runs_next_queued_message(tmp_path: Path) -> None:
+    manager = ConfigManager(root=tmp_path)
+    translator = Translator("en")
+    logger = logging.getLogger("test-app-cancel")
+    logger.handlers.clear()
+    logger.addHandler(logging.NullHandler())
+    gateway = BlockingGateway()
+    runtime = TriadRuntime(
+        config_manager=manager,
+        settings=UserSettings(language="en"),
+        profiles={},
+        translator=translator,
+        model_gateway=gateway,
+        tool_broker=ToolBroker(workspace=tmp_path),
+        logger=logger,
+    )
+    app = TriadApp(runtime=runtime, translator=translator, config_manager=manager)
+
+    async with app.run_test() as pilot:
+        await app._dispatch_input("first request")
+        await asyncio.wait_for(gateway.first_started.wait(), timeout=2)
+        await app._dispatch_input("second request")
+        assert list(app.pending_inputs) == ["second request"]
+        assert app.query_one("#cancel-turn", Button).disabled is False
+
+        await pilot.click("#cancel-turn")
+        for _ in range(5):
+            await pilot.pause()
+            if gateway.processor_messages == ["first request", "second request"]:
+                break
+
+        transcript = app.query_one("#transcript")
+        joined = "\n".join(str(child.render()) for child in transcript.children)
+        assert "The current turn was cancelled." in joined
+        assert gateway.processor_messages == ["first request", "second request"]
+        assert "Final answer for: second request" in joined

@@ -36,6 +36,8 @@ That makes the second model a grounded review layer rather than a second paralle
 
 - scrollable transcript with fixed bottom composer
 - two-line composer with `Enter` to send, `Ctrl+J` for a newline, and `Ctrl+E` for an expanded editor
+- FIFO turn queue when new prompts are submitted while another turn is running
+- cancel button and `/cancel` support for the active turn
 - proposal, validation, and consolidation pipeline
 - full visible conversation history passed back to agents on each turn
 - clarification loop when the processor or validator needs more data
@@ -119,6 +121,8 @@ uv run triadllm
 - `Ctrl+J` inserts a newline in the bottom composer
 - `Ctrl+E` opens the expanded composer modal
 - inside the expanded composer, `Ctrl+S` sends and `Esc` cancels
+- if a turn is already running, new non-command prompts are queued automatically
+- the `Cancel` button or `/cancel` stops the active turn and allows the queue to continue
 
 ## Fastest First Working Setup
 
