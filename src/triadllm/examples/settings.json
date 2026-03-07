@@ -1,0 +1,14 @@
+{
+  "language": "en",
+  "permission_mode": "ask",
+  "show_reasoning": true,
+  "show_tool_results": true,
+  "default_profile": "orchestrator_mistral_medium_latest",
+  "agent_profiles": {
+    "orchestrator": "orchestrator_mistral_medium_latest",
+    "processor": "processor_magistral_medium_latest",
+    "validator": "validator_gpt54_medium"
+  },
+  "log_level": "INFO",
+  "log_retention_days": 7
+}

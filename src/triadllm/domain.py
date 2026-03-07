@@ -70,7 +70,7 @@ class ProviderProfile(BaseModel):
 
 
 class UserSettings(BaseModel):
-    language: LanguageCode = "es"
+    language: LanguageCode = "en"
     permission_mode: PermissionMode = PermissionMode.ASK
     show_reasoning: bool = True
     show_tool_results: bool = True

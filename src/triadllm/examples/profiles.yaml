@@ -1,3 +1,9 @@
+# Copy this file to your user config directory as `profiles.yaml`.
+# Example Linux path: ~/.config/TriadLLM/profiles.yaml
+#
+# You can use one provider family for all roles or mix providers across
+# orchestrator, processor, and validator.
+
 default_profile: openai_default
 
 profiles:

@@ -3,6 +3,13 @@ from pathlib import Path
 from triadllm.config import ConfigManager
 
 
+def test_default_settings_language_is_english(tmp_path: Path) -> None:
+    manager = ConfigManager(root=tmp_path)
+    settings = manager.load_settings()
+
+    assert settings.language == "en"
+
+
 def test_load_profiles_from_yaml(tmp_path: Path) -> None:
     manager = ConfigManager(root=tmp_path)
     Path(manager.paths.profiles_path).write_text(

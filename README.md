@@ -1,126 +1,138 @@
 # TriadLLM
 
-`TriadLLM` is a terminal chat application that runs each user turn through a three-stage LLM workflow:
+`TriadLLM` is a terminal chat application for multi-stage LLM work. Each user turn follows a fixed workflow:
 
-- `processor`: produces the primary answer
-- `validator`: validates that answer against the original user request and any gathered evidence
-- `orchestrator`: presents the final consolidated response to the user
+1. `processor` generates the primary answer
+2. `validator` checks that answer against the original request and gathered evidence
+3. `orchestrator` consolidates both into the final user-facing reply
 
-The interface is built with `Textual`, uses the official OpenAI and Mistral SDKs where available, and supports OpenAI-compatible local providers such as `GLM-4.7-Flash` on `localhost`.
+The project uses:
 
-This is not a system of two independent parallel opinions. The intended behavior is:
+- `Textual` for the TUI
+- official OpenAI and Mistral SDKs where possible
+- an OpenAI-compatible backend for local servers such as `GLM-4.7-Flash`
+- a shared structured JSON protocol for agent actions
+- a central tool broker with `ask` and `yolo` permission modes
 
-- generate an answer
+The repository language is English, and fresh installs default to English in the app. Spanish is also supported at runtime with `/lang es`.
+
+## What TriadLLM Is
+
+TriadLLM is not a “two independent opinions” system. The intended workflow is:
+
+- generate a primary answer
 - validate it against the original request
-- consolidate the proposal and validation into one final reply
+- consolidate the answer and validation into a final response
 
-## Architecture
-
-Each user turn runs through this pipeline:
-
-1. `processor` receives the user message plus the full visible conversation history and proposes the primary answer.
-2. `validator` receives the original user message, the same visible conversation, and the processor output. It verifies, challenges, corrects, or requests evidence.
-3. `orchestrator` receives the processor proposal and the validator review, then presents the final consolidated answer shown in the TUI.
-
-If `processor` or `validator` asks for more data, the runtime pauses, surfaces the clarification to the user, captures the answer, and resumes from the pending stage.
+That makes the second model a grounded review layer rather than a second parallel solver.
 
 ## Features
 
-- Retro-styled TUI inspired by modern coding CLIs
-- Scrollable transcript with fixed bottom composer
-- Three-stage proposal, validation, and consolidation pipeline
-- User clarification loop when processor or validator needs more data
-- Full visible conversation history is passed back to every agent on each turn
-- Local tools with `ask` and `yolo` permission modes
-- Reasoning / thinking blocks rendered separately and toggleable with `/reasoning on|off`
-- Slash commands for runtime control
-- Structured logging with daily rotation
-- Session persistence in JSONL
-- Built-in i18n for Spanish and English, extensible to more locales
-- Reproducible Python 3.13 environment via `uv`
-- Official SDK integration for OpenAI and Mistral, plus OpenAI-compatible local backends
-- Graceful fallback paths for providers that return reasoning but fail to emit valid structured JSON
+- scrollable transcript with fixed bottom composer
+- three-stage proposal, validation, and consolidation flow
+- full visible conversation history passed back to agents on each turn
+- clarification loop when the processor or validator needs more data
+- local tools with permission prompts
+- toggleable reasoning display with `/reasoning on|off`
+- toggleable tool-request/result display with `/toolresults on|off`
+- slash commands for runtime control
+- JSONL session persistence
+- structured rotating logs
+- English and Spanish locales
+- Python `3.13` environment managed with `uv`
 
 ## Quick Start
 
+### 1. Install `uv`
+
+See the official installer:
+
+https://docs.astral.sh/uv/getting-started/installation/
+
+### 2. Clone and bootstrap
+
 ```bash
+git clone https://github.com/ibitato/TriadLLM.git
+cd TriadLLM
 uv python install 3.13
 uv sync
+```
+
+### 3. Prepare provider configuration
+
+Run the app once to create the config directories:
+
+```bash
 uv run triad
 ```
 
-By default the app looks for config under the platform-specific user config directory:
+Then copy the example profile file into your user config directory:
 
-- Linux: `~/.config/TriadLLM`
-- macOS: `~/Library/Application Support/TriadLLM`
-- Windows: `%APPDATA%\TriadLLM`
+- Linux: `~/.config/TriadLLM/profiles.yaml`
+- macOS: `~/Library/Application Support/TriadLLM/profiles.yaml`
+- Windows: `%APPDATA%\\TriadLLM\\profiles.yaml`
 
-Copy the example provider config from [`src/triadllm/examples/profiles.yaml`](src/triadllm/examples/profiles.yaml) to your user config directory as `profiles.yaml`, then export the matching API key variable.
+Example on Linux:
 
-On first launch, `TriadLLM` will automatically reuse legacy local config from `MultiBrainLLM` if it finds existing settings, profiles, sessions, or logs.
-
-The app persists:
-
-- `settings.json`: language, permission mode, reasoning visibility, default profile and per-role assignments
-- `profiles.yaml`: provider/model definitions
-- `sessions/*.jsonl`: conversation event history
-- `triadllm.log`: structured runtime log
-
-## Provider Support
-
-Supported provider backends:
-
-- `openai`: official OpenAI SDK
-- `mistral`: official Mistral SDK
-- `openai_compatible`: OpenAI SDK pointed at a compatible endpoint, including local servers
-
-Important notes:
-
-- Provider availability depends on your account. A model alias present in docs may not be available in your tenant.
-- The runtime supports assigning any supported provider family to any role.
-- If a provider emits reasoning without a usable structured answer, the runtime applies repair or fallback logic instead of crashing the turn.
-- Local OpenAI-compatible endpoints on `localhost` / `127.0.0.1` can use `api_key_literal: dummy`.
-
-## Configuration
-
-Example `profiles.yaml` structure:
-
-```yaml
-default_profile: openai_default
-
-profiles:
-  orchestrator_mistral_medium_latest:
-    provider: mistral
-    base_url: https://api.mistral.ai/v1
-    model: mistral-medium-latest
-    api_key_env: MISTRAL_API_KEY
-    temperature: 0.7
-
-  processor_gpt54_medium:
-    provider: openai
-    base_url: https://api.openai.com/v1
-    model: gpt-5.4
-    api_key_env: OPENAI_API_KEY
-    temperature: 1.0
-    reasoning_effort: medium
-    reasoning_summary: auto
-
-  local_glm47_flash:
-    provider: openai_compatible
-    base_url: http://127.0.0.1:8080/v1
-    model: zai-org/GLM-4.7-Flash
-    api_key_literal: dummy
-    temperature: 0.7
+```bash
+mkdir -p ~/.config/TriadLLM
+cp src/triadllm/examples/profiles.yaml ~/.config/TriadLLM/profiles.yaml
 ```
 
-The repository example includes tested profile shapes for:
+If you want to inspect the active paths later, use `/config` inside the app.
 
-- OpenAI
-- Mistral
-- Magistral
-- local OpenAI-compatible models
+### 4. Export API keys
 
-## Tools
+Examples:
+
+```bash
+export OPENAI_API_KEY=...
+export MISTRAL_API_KEY=...
+```
+
+The app reads provider credentials from the environment. It does not load a `.env` file by itself.
+
+### 5. Start the app
+
+```bash
+uv run triad
+```
+
+Alternative entrypoint:
+
+```bash
+uv run triadllm
+```
+
+## First-Run Checklist
+
+After cloning the repo, a new user should verify:
+
+- Python `3.13` is installed with `uv`
+- `uv sync` completed successfully
+- `profiles.yaml` exists in the user config directory
+- the required API keys are exported in the shell
+- `uv run triad` starts the TUI
+- `/models` shows the configured profiles
+- `/status` shows the expected language, permissions, and log path
+
+## Configuration and Runtime Files
+
+TriadLLM stores runtime state outside the repo:
+
+- `settings.json`: language, permission mode, log settings, UI toggles, role assignments
+- `profiles.yaml`: provider/model definitions
+- `sessions/*.jsonl`: persisted session events
+- `triadllm.log`: structured runtime log
+
+On first launch, TriadLLM automatically reuses legacy local config from `MultiBrainLLM` if it finds existing settings, profiles, sessions, or logs.
+
+Repository examples:
+
+- sample profiles: [`src/triadllm/examples/profiles.yaml`](/home/dlopez/code/collabAgent/src/triadllm/examples/profiles.yaml)
+- sample settings: [`src/triadllm/examples/settings.json`](/home/dlopez/code/collabAgent/src/triadllm/examples/settings.json)
+
+## Tools and Permissions
 
 Available local tools:
 
@@ -132,12 +144,12 @@ Available local tools:
 - `get_env`
 - `pwd`
 
-Execution rules:
+Execution modes:
 
-- In `ask` mode, every tool request requires user approval.
-- In `yolo` mode, tool requests run immediately.
-- Environment access is allowlisted.
-- Tool names are fixed; agents are instructed not to invent tool identifiers.
+- `ask`: every tool request requires approval
+- `yolo`: tool requests run immediately
+
+Use `/permissions ask` or `/permissions yolo` to switch modes at runtime.
 
 ## Slash Commands
 
@@ -147,7 +159,7 @@ Execution rules:
 - `/permissions ask|yolo`
 - `/lang es|en`
 - `/models`
-- `/model set <agent> <profile>`
+- `/model set <orchestrator|processor|validator> <profile>`
 - `/tools`
 - `/reasoning on|off`
 - `/toolresults on|off`
@@ -155,26 +167,18 @@ Execution rules:
 - `/clear`
 - `/quit`
 
-## Runtime Notes
+## Documentation
 
-- The visible transcript is the conversation context used for each new turn.
-- The validator is a grounded review stage, not an independent second solver.
-- The orchestrator is the final presentation layer: it does not replace validation, it packages the processor proposal and validator review for the user.
-- `/new` starts a fresh conversation and rotates the session file.
-- `/clear` clears the rendered transcript only; it does not reset the runtime state.
-- Reasoning visibility affects display only; it does not change what is logged or sent to providers.
-- Different model families may choose different valid actions for the same prompt: final answer, tool request, or clarification.
+- installation guide: [`docs/INSTALLATION.md`](/home/dlopez/code/collabAgent/docs/INSTALLATION.md)
+- configuration reference: [`docs/CONFIGURATION.md`](/home/dlopez/code/collabAgent/docs/CONFIGURATION.md)
+- architecture guide: [`docs/ARCHITECTURE.md`](/home/dlopez/code/collabAgent/docs/ARCHITECTURE.md)
+- FAQ: [`docs/FAQ.md`](/home/dlopez/code/collabAgent/docs/FAQ.md)
+- coding-agent maintenance guide: [`AGENTS.md`](/home/dlopez/code/collabAgent/AGENTS.md)
 
 ## Development
 
 ```bash
 uv sync --dev
-uv run pytest
-```
-
-Useful commands:
-
-```bash
 uv run pytest -q
 uv run python -m compileall src tests
 uv build
