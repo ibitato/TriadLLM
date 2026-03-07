@@ -5,11 +5,21 @@ import logging
 from pathlib import Path
 
 import pytest
+from pydantic import BaseModel
 from textual.widgets import Button
 
 from triadllm.app import TriadApp, PermissionScreen
 from triadllm.config import ConfigManager
-from triadllm.domain import ToolRequest, UserSettings
+from triadllm.domain import (
+    AgentActionKind,
+    AgentResponse,
+    AgentRole,
+    ConsolidatedResponse,
+    ModelInvocationResult,
+    PermissionMode,
+    ToolRequest,
+    UserSettings,
+)
 from triadllm.i18n import Translator
 from triadllm.runtime import TriadRuntime
 from triadllm.tools import ToolBroker
@@ -18,6 +28,16 @@ from triadllm.tools import ToolBroker
 class IdleGateway:
     async def ainvoke(self, role, schema, system_prompt, payload):  # noqa: ANN001, ANN201
         raise RuntimeError("not used in this test")
+
+
+class ScriptedGateway:
+    def __init__(self, scripted: dict[AgentRole, list[ModelInvocationResult[BaseModel]]]) -> None:
+        self.scripted = {role: list(responses) for role, responses in scripted.items()}
+
+    async def ainvoke(self, role, schema, system_prompt, payload):  # noqa: ANN001, ANN201
+        response = self.scripted[role].pop(0)
+        assert isinstance(response.parsed, schema)
+        return response
 
 
 @pytest.mark.anyio
@@ -150,39 +170,6 @@ async def test_app_starts_new_conversation(tmp_path: Path) -> None:
 
 
 @pytest.mark.anyio
-async def test_prompt_permission_uses_screen_callback_result(tmp_path: Path) -> None:
-    manager = ConfigManager(root=tmp_path)
-    translator = Translator("en")
-    logger = logging.getLogger("test-app-permission")
-    logger.handlers.clear()
-    logger.addHandler(logging.NullHandler())
-    runtime = TriadRuntime(
-        config_manager=manager,
-        settings=UserSettings(language="en"),
-        profiles={},
-        translator=translator,
-        model_gateway=IdleGateway(),
-        tool_broker=ToolBroker(workspace=tmp_path),
-        logger=logger,
-    )
-    app = TriadApp(runtime=runtime, translator=translator, config_manager=manager)
-
-    def fake_push_screen(screen, callback=None, wait_for_dismiss=False, mode=None):  # noqa: ANN001, ANN202
-        assert callback is not None
-        assert wait_for_dismiss is False
-        callback(True)
-        return None
-
-    app.push_screen = fake_push_screen  # type: ignore[method-assign]
-
-    approved = await app._prompt_permission(
-        ToolRequest(tool="list_dir", arguments={"path": "."}, reason="test")
-    )
-
-    assert approved is True
-
-
-@pytest.mark.anyio
 async def test_permission_screen_has_keyboard_shortcuts(tmp_path: Path) -> None:
     app = TriadApp(
         runtime=TriadRuntime(
@@ -230,13 +217,15 @@ async def test_prompt_permission_resolves_on_enter(tmp_path: Path) -> None:
     app = TriadApp(runtime=runtime, translator=translator, config_manager=manager)
 
     async with app.run_test() as pilot:
-        task = asyncio.create_task(
-            app._prompt_permission(ToolRequest(tool="list_dir", arguments={"path": "."}, reason="test"))
+        worker = app.run_worker(
+            app._prompt_permission(ToolRequest(tool="list_dir", arguments={"path": "."}, reason="test")),
+            thread=False,
+            exit_on_error=False,
         )
         await pilot.pause()
         assert isinstance(app.screen, PermissionScreen)
         await pilot.press("enter")
-        assert await asyncio.wait_for(task, timeout=2) is True
+        assert await asyncio.wait_for(worker.wait(), timeout=2) is True
 
 
 @pytest.mark.anyio
@@ -258,10 +247,70 @@ async def test_prompt_permission_resolves_on_escape(tmp_path: Path) -> None:
     app = TriadApp(runtime=runtime, translator=translator, config_manager=manager)
 
     async with app.run_test() as pilot:
-        task = asyncio.create_task(
-            app._prompt_permission(ToolRequest(tool="list_dir", arguments={"path": "."}, reason="test"))
+        worker = app.run_worker(
+            app._prompt_permission(ToolRequest(tool="list_dir", arguments={"path": "."}, reason="test")),
+            thread=False,
+            exit_on_error=False,
         )
         await pilot.pause()
         assert isinstance(app.screen, PermissionScreen)
         await pilot.press("escape")
-        assert await asyncio.wait_for(task, timeout=2) is False
+        assert await asyncio.wait_for(worker.wait(), timeout=2) is False
+
+
+@pytest.mark.anyio
+async def test_full_tool_flow_resolves_permission_modal_from_worker(tmp_path: Path) -> None:
+    manager = ConfigManager(root=tmp_path)
+    translator = Translator("en")
+    logger = logging.getLogger("test-app-full-tool-flow")
+    logger.handlers.clear()
+    logger.addHandler(logging.NullHandler())
+    runtime = TriadRuntime(
+        config_manager=manager,
+        settings=UserSettings(language="en", permission_mode=PermissionMode.ASK),
+        profiles={},
+        translator=translator,
+        model_gateway=ScriptedGateway(
+            {
+                AgentRole.PROCESSOR: [
+                    ModelInvocationResult(
+                        parsed=AgentResponse(
+                            kind=AgentActionKind.REQUEST_TOOL,
+                            tool_request=ToolRequest(
+                                tool="list_dir",
+                                arguments={"path": "."},
+                                reason="Verify the workspace contents.",
+                            ),
+                        )
+                    ),
+                    ModelInvocationResult(parsed=AgentResponse(kind=AgentActionKind.FINAL, message="Processor done")),
+                ],
+                AgentRole.VALIDATOR: [
+                    ModelInvocationResult(parsed=AgentResponse(kind=AgentActionKind.FINAL, message="Validator done")),
+                ],
+                AgentRole.ORCHESTRATOR: [
+                    ModelInvocationResult(
+                        parsed=ConsolidatedResponse(
+                            processor_view="Processor done",
+                            validator_view="Validator done",
+                            synthesis="Final answer",
+                        )
+                    )
+                ],
+            }
+        ),
+        tool_broker=ToolBroker(workspace=tmp_path),
+        logger=logger,
+    )
+    app = TriadApp(runtime=runtime, translator=translator, config_manager=manager)
+
+    async with app.run_test() as pilot:
+        await app._dispatch_input("check workspace")
+        await pilot.pause()
+        assert isinstance(app.screen, PermissionScreen)
+        await pilot.press("enter")
+        await pilot.pause()
+        await pilot.pause()
+        transcript = app.query_one("#transcript")
+        joined = "\n".join(str(child.render()) for child in transcript.children)
+        assert "Final answer" in joined

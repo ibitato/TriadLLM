@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-import asyncio
 import shlex
 
 from textual import events, on
 from textual.app import App, ComposeResult
-from textual.containers import Container, Horizontal, VerticalScroll
+from textual.containers import CenterMiddle, Container, Horizontal, VerticalScroll
 from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Static
 
@@ -25,13 +24,17 @@ class PermissionScreen(ModalScreen[bool]):
     ]
 
     CSS = """
-    Screen {
-        align: center middle;
+    PermissionScreen {
         background: rgba(0, 0, 0, 0.75);
     }
 
+    CenterMiddle {
+        width: 100%;
+        height: 100%;
+    }
+
     #permission-dialog {
-        width: 70;
+        width: 74;
         padding: 1 2;
         border: round #ff9f1c;
         background: #111111;
@@ -40,7 +43,7 @@ class PermissionScreen(ModalScreen[bool]):
     #permission-actions {
         height: auto;
         margin-top: 1;
-        align: right middle;
+        align: center middle;
     }
 
     #permission-help {
@@ -66,13 +69,14 @@ class PermissionScreen(ModalScreen[bool]):
             risk=self.request.risk.value,
             args=self.request.arguments,
         )
-        with Container(id="permission-dialog"):
-            yield Static(self.translator.t("permission.title"), classes="modal-title")
-            yield Static(summary)
-            yield Static(self.translator.t("permission.help"), id="permission-help")
-            with Horizontal(id="permission-actions"):
-                yield Button(self.translator.t("permission.deny"), id="deny")
-                yield Button(self.translator.t("permission.approve"), id="approve", variant="success")
+        with CenterMiddle():
+            with Container(id="permission-dialog"):
+                yield Static(self.translator.t("permission.title"), classes="modal-title")
+                yield Static(summary)
+                yield Static(self.translator.t("permission.help"), id="permission-help")
+                with Horizontal(id="permission-actions"):
+                    yield Button(self.translator.t("permission.deny"), id="deny")
+                    yield Button(self.translator.t("permission.approve"), id="approve", variant="success")
 
     def on_mount(self) -> None:
         self.call_after_refresh(self._focus_approve)
@@ -284,10 +288,27 @@ class TriadApp(App[None]):
 
         self.busy = True
         self._refresh_status()
+        self.run_worker(
+            self._run_user_turn(text),
+            name="chat-turn",
+            group="chat-turn",
+            exclusive=True,
+            exit_on_error=False,
+            thread=False,
+        )
+
+    async def _run_user_turn(self, text: str) -> None:
         try:
             events = await self.runtime.submit_user_message(text)
             for event in events:
                 await self._render_event(event)
+        except Exception as exc:  # noqa: BLE001
+            self.runtime.logger.exception("app_turn_worker_error", extra={"message": text})
+            await self._add_block(
+                self.translator.t("event.error"),
+                self.translator.t("system.error", error=str(exc)),
+                "system",
+            )
         finally:
             self.busy = False
             self._refresh_status()
@@ -444,12 +465,6 @@ class TriadApp(App[None]):
         )
 
     async def _prompt_permission(self, request: ToolRequest) -> bool:
-        result_future: asyncio.Future[bool] = asyncio.get_running_loop().create_future()
-
-        def handle_result(result: bool | None) -> None:
-            if not result_future.done():
-                result_future.set_result(bool(result))
-
         self.runtime.logger.info(
             "permission_prompt_shown",
             extra={
@@ -459,8 +474,7 @@ class TriadApp(App[None]):
                 "reason": request.reason,
             },
         )
-        self.push_screen(PermissionScreen(request, self.translator), callback=handle_result)
-        approved = await result_future
+        approved = bool(await self.push_screen_wait(PermissionScreen(request, self.translator)))
         self.runtime.logger.info(
             "permission_prompt_resolved",
             extra={
