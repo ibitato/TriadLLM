@@ -228,7 +228,7 @@ class MultiBrainApp(App[None]):
             self.translator.t("app.welcome"),
             "system",
         )
-        self._apply_reasoning_visibility()
+        self._apply_visibility_settings()
         self._refresh_status()
 
     @on(Input.Submitted)
@@ -318,8 +318,16 @@ class MultiBrainApp(App[None]):
             else:
                 visible = args[0] == "on"
                 self.runtime.set_reasoning_visibility(visible)
-                self._apply_reasoning_visibility()
+                self._apply_visibility_settings()
                 body = self.translator.t("slash.reasoning.changed", state=args[0])
+        elif command == "/toolresults":
+            if not args or args[0] not in {"on", "off"}:
+                body = self.translator.t("slash.toolresults.invalid")
+            else:
+                visible = args[0] == "on"
+                self.runtime.set_tool_results_visibility(visible)
+                self._apply_visibility_settings()
+                body = self.translator.t("slash.toolresults.changed", state=args[0])
         elif command == "/new":
             self.runtime.reset_conversation()
             self.query_one("#transcript", VerticalScroll).remove_children()
@@ -374,6 +382,8 @@ class MultiBrainApp(App[None]):
         await transcript.mount(block)
         if kind == "reasoning" and not self.runtime.settings.show_reasoning:
             block.add_class("is-hidden")
+        if kind == "tool" and not self.runtime.settings.show_tool_results:
+            block.add_class("is-hidden")
         transcript.scroll_end(animate=False)
 
     def _refresh_chrome(self) -> None:
@@ -382,7 +392,7 @@ class MultiBrainApp(App[None]):
         self.query_one("#send", Button).label = self.translator.t("button.send")
         self.title = self.translator.t("app.title")
         self.sub_title = "Multi-agent terminal"
-        self._apply_reasoning_visibility()
+        self._apply_visibility_settings()
         self._refresh_status()
 
     def _refresh_status(self) -> None:
@@ -399,6 +409,7 @@ class MultiBrainApp(App[None]):
                 permission=status.permission_mode.value,
                 profile=default_profile,
                 reasoning=self.translator.t("status.on") if status.show_reasoning else self.translator.t("status.off"),
+                tools=self.translator.t("status.on") if status.show_tool_results else self.translator.t("status.off"),
             )
         )
 
@@ -412,11 +423,13 @@ class MultiBrainApp(App[None]):
         self.push_screen(PermissionScreen(request, self.translator), callback=handle_result)
         return await result_future
 
-    def _apply_reasoning_visibility(self) -> None:
+    def _apply_visibility_settings(self) -> None:
         transcript = self.query_one("#transcript", VerticalScroll)
         for child in transcript.children:
             if isinstance(child, ChatBlock) and child.kind == "reasoning":
                 child.set_class(not self.runtime.settings.show_reasoning, "is-hidden")
+            if isinstance(child, ChatBlock) and child.kind == "tool":
+                child.set_class(not self.runtime.settings.show_tool_results, "is-hidden")
 
     def _describe_profile(self, profile_id: str | None) -> str:
         if profile_id is None:

@@ -142,6 +142,7 @@ Execution rules:
 - `/model set <agent> <profile>`
 - `/tools`
 - `/reasoning on|off`
+- `/toolresults on|off`
 - `/new`
 - `/clear`
 - `/quit`

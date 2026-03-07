@@ -79,6 +79,11 @@ class MultiBrainRuntime:
         self.config_manager.save_settings(self.settings)
         self.logger.info("settings_updated", extra={"field": "show_reasoning", "value": visible})
 
+    def set_tool_results_visibility(self, visible: bool) -> None:
+        self.settings.show_tool_results = visible
+        self.config_manager.save_settings(self.settings)
+        self.logger.info("settings_updated", extra={"field": "show_tool_results", "value": visible})
+
     def set_default_profile(self, profile_id: str | None) -> None:
         self.settings.default_profile = profile_id
         self.config_manager.save_settings(self.settings)
@@ -107,6 +112,7 @@ class MultiBrainRuntime:
             language=self.settings.language,
             permission_mode=self.settings.permission_mode,
             show_reasoning=self.settings.show_reasoning,
+            show_tool_results=self.settings.show_tool_results,
             default_profile=self.settings.default_profile,
             active_profiles=active_profiles,
             available_profiles=sorted(self.profiles.keys()),

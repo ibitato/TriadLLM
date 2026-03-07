@@ -73,6 +73,7 @@ class UserSettings(BaseModel):
     language: LanguageCode = "es"
     permission_mode: PermissionMode = PermissionMode.ASK
     show_reasoning: bool = True
+    show_tool_results: bool = True
     default_profile: str | None = None
     agent_profiles: dict[AgentRole, str] = Field(default_factory=dict)
     log_level: str = "INFO"
@@ -154,6 +155,7 @@ class RuntimeStatus(BaseModel):
     language: LanguageCode
     permission_mode: PermissionMode
     show_reasoning: bool
+    show_tool_results: bool
     default_profile: str | None
     active_profiles: dict[AgentRole, str | None]
     available_profiles: list[str]
