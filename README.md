@@ -1,8 +1,9 @@
 # TriadLLM
 
 [![Python 3.13+](https://img.shields.io/badge/python-3.13%2B-306998.svg)](https://www.python.org/)
+[![CI](https://github.com/ibitato/TriadLLM/actions/workflows/ci.yml/badge.svg)](https://github.com/ibitato/TriadLLM/actions/workflows/ci.yml)
 [![TUI Textual](https://img.shields.io/badge/ui-Textual-2ec4b6.svg)](https://textual.textualize.io/)
-[![Providers OpenAI Mistral Compatible](https://img.shields.io/badge/providers-OpenAI%20%7C%20Mistral%20%7C%20Compatible-ff9f1c.svg)](#provider-setups)
+[![Providers OpenAI Mistral Compatible](https://img.shields.io/badge/providers-OpenAI%20%7C%20Mistral%20%7C%20Compatible-ff9f1c.svg)](./docs/PROVIDERS.md)
 [![License PolyForm Noncommercial](https://img.shields.io/badge/license-PolyForm%20Noncommercial-red.svg)](./LICENSE)
 
 `TriadLLM` is a terminal chat application for multi-stage LLM work.
@@ -195,6 +196,7 @@ Use `/permissions ask` or `/permissions yolo` to switch modes at runtime.
 - FAQ: [`docs/FAQ.md`](./docs/FAQ.md)
 - roadmap: [`ROADMAP.md`](./ROADMAP.md)
 - changelog: [`CHANGELOG.md`](./CHANGELOG.md)
+- release process: [`docs/RELEASING.md`](./docs/RELEASING.md)
 - coding-agent maintenance guide: [`AGENTS.md`](./AGENTS.md)
 
 ## Development
