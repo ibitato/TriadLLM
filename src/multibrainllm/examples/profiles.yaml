@@ -1,0 +1,11 @@
+default_profile: openai_default
+
+profiles:
+  openai_default:
+    label: OpenAI Default
+    base_url: https://api.openai.com/v1
+    model: gpt-4.1-mini
+    api_key_env: OPENAI_API_KEY
+    temperature: 0.2
+    timeout: 60
+    max_tokens: 1800
