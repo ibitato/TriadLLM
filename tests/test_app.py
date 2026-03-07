@@ -7,7 +7,7 @@ import pytest
 
 from multibrainllm.app import MultiBrainApp
 from multibrainllm.config import ConfigManager
-from multibrainllm.domain import UserSettings
+from multibrainllm.domain import ToolRequest, UserSettings
 from multibrainllm.i18n import Translator
 from multibrainllm.runtime import MultiBrainRuntime
 from multibrainllm.tools import ToolBroker
@@ -94,3 +94,36 @@ async def test_app_starts_new_conversation(tmp_path: Path) -> None:
         transcript = app.query_one("#transcript")
         assert len(transcript.children) >= 2
         assert runtime.history == []
+
+
+@pytest.mark.anyio
+async def test_prompt_permission_uses_screen_callback_result(tmp_path: Path) -> None:
+    manager = ConfigManager(root=tmp_path)
+    translator = Translator("en")
+    logger = logging.getLogger("test-app-permission")
+    logger.handlers.clear()
+    logger.addHandler(logging.NullHandler())
+    runtime = MultiBrainRuntime(
+        config_manager=manager,
+        settings=UserSettings(language="en"),
+        profiles={},
+        translator=translator,
+        model_gateway=IdleGateway(),
+        tool_broker=ToolBroker(workspace=tmp_path),
+        logger=logger,
+    )
+    app = MultiBrainApp(runtime=runtime, translator=translator, config_manager=manager)
+
+    def fake_push_screen(screen, callback=None, wait_for_dismiss=False, mode=None):  # noqa: ANN001, ANN202
+        assert callback is not None
+        assert wait_for_dismiss is False
+        callback(True)
+        return None
+
+    app.push_screen = fake_push_screen  # type: ignore[method-assign]
+
+    approved = await app._prompt_permission(
+        ToolRequest(tool="list_dir", arguments={"path": "."}, reason="test")
+    )
+
+    assert approved is True

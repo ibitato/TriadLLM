@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import shlex
 
 from textual import on
@@ -382,7 +383,14 @@ class MultiBrainApp(App[None]):
         )
 
     async def _prompt_permission(self, request: ToolRequest) -> bool:
-        return await self.push_screen_wait(PermissionScreen(request, self.translator))
+        result_future: asyncio.Future[bool] = asyncio.get_running_loop().create_future()
+
+        def handle_result(result: bool | None) -> None:
+            if not result_future.done():
+                result_future.set_result(bool(result))
+
+        self.push_screen(PermissionScreen(request, self.translator), callback=handle_result)
+        return await result_future
 
     def _apply_reasoning_visibility(self) -> None:
         transcript = self.query_one("#transcript", VerticalScroll)
