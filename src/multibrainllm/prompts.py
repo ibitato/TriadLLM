@@ -8,9 +8,20 @@ LANGUAGE_NAMES: dict[LanguageCode, str] = {
     "es": "Spanish",
 }
 
+AVAILABLE_TOOLS = (
+    "shell_exec",
+    "read_file",
+    "write_file",
+    "list_dir",
+    "search_files",
+    "get_env",
+    "pwd",
+)
+
 
 def build_agent_prompt(role: AgentRole, language: LanguageCode) -> str:
     target_language = LANGUAGE_NAMES[language]
+    tools_list = ", ".join(AVAILABLE_TOOLS)
 
     if role == AgentRole.PROCESSOR:
         return f"""
@@ -26,6 +37,8 @@ Rules:
 - Prefer solving the task directly.
 - Ask the user only when a missing detail materially blocks progress.
 - Request tools only when they provide necessary evidence or perform a required operation.
+- If you request a tool, the tool name must be exactly one of: {tools_list}.
+- Never invent tool names. If none of those tools fit, ask the user instead.
 - When producing a final answer, write in {target_language}.
 - Always respect the response schema exactly.
 """.strip()
@@ -44,6 +57,8 @@ Rules:
 - Be skeptical, concise, and evidence-driven.
 - Ask the user only if the missing data is not discoverable locally.
 - Request tools only when verification materially improves the answer.
+- If you request a tool, the tool name must be exactly one of: {tools_list}.
+- Never invent tool names. If none of those tools fit, ask the user instead.
 - When producing a final answer, write in {target_language}.
 - Always respect the response schema exactly.
 """.strip()

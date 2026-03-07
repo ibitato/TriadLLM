@@ -9,6 +9,10 @@ from mistralai import Mistral
 from openai import AsyncOpenAI
 
 from multibrainllm.domain import (
+    AgentActionKind,
+    AgentResponse,
+    ConsolidatedResponse,
+    ToolRequest,
     ModelInvocationResult,
     ProviderBackend,
     ProviderProfile,
@@ -54,11 +58,54 @@ class ProviderGateway:
     ) -> ModelInvocationResult[SchemaT]:
         profile = self.profile_for_role(role)
         backend = self._backend_for_profile(profile)
+        return await self._ainvoke_with_repair(
+            backend=backend,
+            profile=profile,
+            schema=schema,
+            system_prompt=system_prompt,
+            payload=payload,
+        )
+
+    async def _ainvoke_with_repair(
+        self,
+        backend: ProviderBackend,
+        profile: ProviderProfile,
+        schema: type[SchemaT],
+        system_prompt: str,
+        payload: dict[str, Any],
+    ) -> ModelInvocationResult[SchemaT]:
+        try:
+            return await self._ainvoke_once(backend, profile, schema, system_prompt, payload)
+        except Exception as exc:
+            repair_prompt = self._build_repair_prompt(system_prompt, schema)
+            repaired_payload = {
+                "original_payload": payload,
+                "error": str(exc),
+                "instruction": "Retry the task and return only valid JSON that matches the schema.",
+            }
+            return await self._ainvoke_once(
+                backend,
+                profile,
+                schema,
+                repair_prompt,
+                repaired_payload,
+                repair_mode=True,
+            )
+
+    async def _ainvoke_once(
+        self,
+        backend: ProviderBackend,
+        profile: ProviderProfile,
+        schema: type[SchemaT],
+        system_prompt: str,
+        payload: dict[str, Any],
+        repair_mode: bool = False,
+    ) -> ModelInvocationResult[SchemaT]:
         if backend == ProviderBackend.MISTRAL:
-            return await self._ainvoke_mistral_chat(profile, schema, system_prompt, payload)
-        if backend == ProviderBackend.OPENAI and profile.reasoning_summary:
+            return await self._ainvoke_mistral_chat(profile, schema, system_prompt, payload, repair_mode=repair_mode)
+        if backend == ProviderBackend.OPENAI and profile.reasoning_summary and not repair_mode:
             return await self._ainvoke_openai_responses(profile, schema, system_prompt, payload)
-        return await self._ainvoke_openai_chat_json(profile, schema, system_prompt, payload)
+        return await self._ainvoke_openai_chat_json(profile, schema, system_prompt, payload, repair_mode=repair_mode)
 
     def _backend_for_profile(self, profile: ProviderProfile) -> ProviderBackend:
         if profile.provider is not None:
@@ -159,22 +206,37 @@ class ProviderGateway:
         schema: type[SchemaT],
         system_prompt: str,
         payload: dict[str, Any],
+        repair_mode: bool = False,
     ) -> ModelInvocationResult[SchemaT]:
         client = self._get_openai_client(profile)
-        response = await client.chat.completions.create(
-            model=profile.model,
-            messages=[
+        backend = self._backend_for_profile(profile)
+        request: dict[str, Any] = {
+            "model": profile.model,
+            "messages": [
                 {"role": "system", "content": self._build_json_instructions(system_prompt, schema)},
                 {"role": "user", "content": json.dumps(payload, ensure_ascii=False, indent=2)},
             ],
-            temperature=profile.temperature,
-            max_tokens=profile.max_tokens,
+            "temperature": 0.0 if repair_mode else profile.temperature,
+            "max_tokens": profile.max_tokens,
+        }
+        if backend == ProviderBackend.OPENAI_COMPATIBLE:
+            request["response_format"] = {"type": "json_object"}
+        if backend == ProviderBackend.OPENAI and repair_mode:
+            request["response_format"] = {"type": "json_object"}
+
+        response = await client.chat.completions.create(
+            **request,
         )
         data = response.model_dump(mode="json")
         message = data["choices"][0]["message"]
         content = message.get("content") or ""
-        parsed = self._parse_json_output(content, schema)
         reasoning_summary = self._extract_openai_chat_reasoning(message)
+        if not content.strip() and schema is AgentResponse:
+            parsed = self._fallback_agent_response_from_reasoning(reasoning_summary, payload)
+        elif not content.strip() and schema is ConsolidatedResponse:
+            parsed = self._fallback_consolidated_response(payload)
+        else:
+            parsed = self._parse_json_output(content, schema)
 
         return ModelInvocationResult(
             parsed=parsed,
@@ -188,6 +250,7 @@ class ProviderGateway:
         schema: type[SchemaT],
         system_prompt: str,
         payload: dict[str, Any],
+        repair_mode: bool = False,
     ) -> ModelInvocationResult[SchemaT]:
         client = self._get_mistral_client(profile)
         request: dict[str, Any] = {
@@ -199,7 +262,7 @@ class ProviderGateway:
             "temperature": profile.temperature,
             "max_tokens": profile.max_tokens,
         }
-        if profile.model.startswith("magistral"):
+        if profile.model.startswith("magistral") and not repair_mode:
             request["prompt_mode"] = "reasoning"
 
         response = await client.chat.complete_async(**request)
@@ -219,7 +282,21 @@ class ProviderGateway:
         return "\n\n".join(
             [
                 system_prompt,
-                "Return only valid JSON with no Markdown fences and no extra commentary.",
+                "Return only valid JSON with double-quoted keys and string values where required. Do not output Markdown, prose, or code fences.",
+                f"JSON schema to follow:\n{schema_json}",
+            ]
+        )
+
+    def _build_repair_prompt(self, system_prompt: str, schema: type[SchemaT]) -> str:
+        schema_json = json.dumps(schema.model_json_schema(), ensure_ascii=False, indent=2)
+        return "\n\n".join(
+            [
+                system_prompt,
+                "Your previous answer could not be parsed.",
+                "Retry from scratch and return exactly one valid JSON object matching the schema.",
+                "Do not output internal reasoning, thinking, or analysis.",
+                "Skip directly to the final JSON object.",
+                "Do not include explanations, Markdown, code fences, or any text before or after the JSON object.",
                 f"JSON schema to follow:\n{schema_json}",
             ]
         )
@@ -345,3 +422,66 @@ class ProviderGateway:
 
     def _normalize_mistral_server_url(self, base_url: str) -> str:
         return base_url[:-3] if base_url.endswith("/v1") else base_url
+
+    def _fallback_agent_response_from_reasoning(
+        self,
+        reasoning_summary: list[str],
+        payload: dict[str, Any],
+    ) -> AgentResponse:
+        reasoning_text = "\n".join(reasoning_summary)
+        lowered = reasoning_text.lower()
+        language = str(payload.get("language", "en")).lower()
+        clarification_question = (
+            "Necesito más contexto verificable para continuar. ¿Puedes indicar qué pipeline o evidencia debo revisar?"
+            if language == "es"
+            else "I need more verifiable context to continue. Which pipeline or evidence should I review?"
+        )
+
+        for tool_name in ("list_dir", "search_files", "read_file", "pwd", "get_env", "shell_exec", "write_file"):
+            if tool_name in reasoning_text or tool_name in lowered:
+                reason = (
+                    f"Recovered from reasoning-only provider output; inferred tool request for {tool_name}."
+                )
+                return AgentResponse(
+                    kind=AgentActionKind.REQUEST_TOOL,
+                    tool_request=ToolRequest(tool=tool_name, arguments={}, reason=reason),
+                )
+
+        uncertainty_markers = (
+            "need more context",
+            "insufficient context",
+            "i don't know",
+            "i do not know",
+            "no tengo contexto",
+            "necesito más contexto",
+            "falta contexto",
+            "cannot verify",
+            "no puedo verificar",
+            "which pipeline",
+            "qué pipeline",
+        )
+        if any(marker in lowered for marker in uncertainty_markers):
+            return AgentResponse(kind=AgentActionKind.ASK_USER, question=clarification_question)
+
+        message = (
+            "No pude verificar la respuesta con certeza; necesito más contexto o evidencia."
+            if language == "es"
+            else "I could not verify the answer with certainty; I need more context or evidence."
+        )
+        return AgentResponse(kind=AgentActionKind.FINAL, message=message)
+
+    def _fallback_consolidated_response(self, payload: dict[str, Any]) -> ConsolidatedResponse:
+        language = str(payload.get("language", "en")).lower()
+        processor_output = str(payload.get("processor_output", "")).strip()
+        validator_output = str(payload.get("validator_output", "")).strip()
+
+        if language == "es":
+            synthesis = "Síntesis automática: se muestra la respuesta del Processor y la del Validator porque el proveedor no devolvió JSON estructurado en el paso final."
+        else:
+            synthesis = "Automatic synthesis: showing the Processor and Validator outputs because the provider did not return structured JSON in the final step."
+
+        return ConsolidatedResponse(
+            processor_view=processor_output or ("Sin salida del Processor." if language == "es" else "No Processor output."),
+            validator_view=validator_output or ("Sin salida del Validator." if language == "es" else "No Validator output."),
+            synthesis=synthesis,
+        )
