@@ -54,6 +54,8 @@
   "slash.status": "Language: {language}\nPermissions: {permission}\nDefault profile: {default_profile}\nPending clarification: {pending}\nLog file: {log_file}",
   "slash.tools": "Available tools: {tools}",
   "slash.unknown": "Unknown command: {command}",
+  "splash.help": "Press any key to continue. This screen closes automatically in 5 seconds.",
+  "splash.tagline": "Generate. Validate. Consolidate.",
   "status.busy": "busy",
   "status.line": "State: {state} | Language: {language} | Permissions: {permission} | Profile: {profile} | Reasoning: {reasoning} | Tools: {tools} | Queue: {queued}",
   "status.none": "none",

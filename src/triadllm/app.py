@@ -16,6 +16,77 @@ from triadllm.domain import AgentRole, PermissionMode, SessionEvent, SessionEven
 from triadllm.i18n import Translator
 from triadllm.runtime import TriadRuntime
 
+SPLASH_ART = r"""
+ _______        _           _ _     _     __  __ 
+|__   __|      (_)         | | |   | |   |  \/  |
+   | |_ __ __ _ _  __ _  __| | |   | |   | \  / |
+   | | '__/ _` | |/ _` |/ _` | |   | |   | |\/| |
+   | | | | (_| | | (_| | (_| | |___| |___| |  | |
+   |_|_|  \__,_|_|\__,_|\__,_|_____|_____|_|  |_|
+"""
+
+
+class SplashScreen(ModalScreen[None]):
+    CSS = """
+    SplashScreen {
+        background: rgba(0, 0, 0, 0.88);
+    }
+
+    CenterMiddle {
+        width: 100%;
+        height: 100%;
+    }
+
+    #splash-dialog {
+        width: auto;
+        max-width: 88;
+        padding: 1 2;
+        border: round #1f6f46;
+        background: #09100c;
+    }
+
+    #splash-art {
+        color: #ff9f1c;
+        text-style: bold;
+    }
+
+    #splash-tagline {
+        margin-top: 1;
+        color: #b6ff7a;
+    }
+
+    #splash-help {
+        margin-top: 1;
+        color: #ffcf70;
+    }
+    """
+
+    def __init__(self, translator: Translator, timeout_seconds: float) -> None:
+        super().__init__()
+        self.translator = translator
+        self.timeout_seconds = timeout_seconds
+        self._dismissed = False
+
+    def compose(self) -> ComposeResult:
+        with CenterMiddle():
+            with Container(id="splash-dialog"):
+                yield Static(SPLASH_ART.rstrip("\n"), id="splash-art")
+                yield Static(self.translator.t("splash.tagline"), id="splash-tagline")
+                yield Static(self.translator.t("splash.help"), id="splash-help")
+
+    def on_mount(self) -> None:
+        self.set_timer(self.timeout_seconds, self._close)
+
+    def on_key(self, event: events.Key) -> None:
+        event.stop()
+        self._close()
+
+    def _close(self) -> None:
+        if self._dismissed:
+            return
+        self._dismissed = True
+        self.dismiss(None)
+
 
 class PermissionScreen(ModalScreen[bool]):
     BINDINGS = [
@@ -354,6 +425,9 @@ class TriadApp(App[None]):
         runtime: TriadRuntime,
         translator: Translator,
         config_manager: ConfigManager,
+        *,
+        show_splash: bool = True,
+        splash_timeout: float = 5.0,
     ) -> None:
         super().__init__()
         self.runtime = runtime
@@ -362,6 +436,8 @@ class TriadApp(App[None]):
         self.busy = False
         self.pending_inputs: deque[str] = deque()
         self.turn_worker: Worker[None] | None = None
+        self.show_splash = show_splash
+        self.splash_timeout = splash_timeout
 
     def compose(self) -> ComposeResult:
         with Container(id="root"):
@@ -398,6 +474,11 @@ class TriadApp(App[None]):
                     target=self.config_manager.paths.profiles_path,
                 ),
                 "system",
+            )
+        if self.show_splash:
+            self.push_screen(
+                SplashScreen(self.translator, timeout_seconds=self.splash_timeout),
+                callback=lambda _: self.query_one("#composer", ComposerArea).focus(),
             )
         self._apply_visibility_settings()
         self._refresh_status()

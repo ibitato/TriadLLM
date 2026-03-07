@@ -54,6 +54,8 @@
   "slash.status": "Idioma: {language}\nPermisos: {permission}\nPerfil por defecto: {default_profile}\nAclaración pendiente: {pending}\nArchivo de log: {log_file}",
   "slash.tools": "Tools disponibles: {tools}",
   "slash.unknown": "Comando desconocido: {command}",
+  "splash.help": "Pulsa cualquier tecla para continuar. Esta pantalla se cierra sola en 5 segundos.",
+  "splash.tagline": "Genera. Valida. Consolida.",
   "status.busy": "ocupado",
   "status.line": "Estado: {state} | Idioma: {language} | Permisos: {permission} | Perfil: {profile} | Reasoning: {reasoning} | Tools: {tools} | Cola: {queued}",
   "status.none": "ninguno",

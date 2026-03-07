@@ -8,7 +8,7 @@ import pytest
 from pydantic import BaseModel
 from textual.widgets import Button, TextArea
 
-from triadllm.app import ComposerArea, EditorScreen, PermissionScreen, TriadApp
+from triadllm.app import ComposerArea, EditorScreen, PermissionScreen, SplashScreen, TriadApp
 from triadllm.config import ConfigManager
 from triadllm.domain import (
     AgentActionKind,
@@ -85,7 +85,7 @@ async def test_app_handles_status_command(tmp_path: Path) -> None:
         tool_broker=ToolBroker(workspace=tmp_path),
         logger=logger,
     )
-    app = TriadApp(runtime=runtime, translator=translator, config_manager=manager)
+    app = TriadApp(runtime=runtime, translator=translator, config_manager=manager, show_splash=False)
 
     async with app.run_test() as pilot:
         await pilot.press("/")
@@ -110,12 +110,69 @@ async def test_app_shows_no_profiles_hint_on_fresh_install(tmp_path: Path) -> No
         tool_broker=ToolBroker(workspace=tmp_path),
         logger=logger,
     )
-    app = TriadApp(runtime=runtime, translator=translator, config_manager=manager)
+    app = TriadApp(runtime=runtime, translator=translator, config_manager=manager, show_splash=False)
 
     async with app.run_test():
         transcript = app.query_one("#transcript")
         joined = "\n".join(str(child.render()) for child in transcript.children)
         assert "No provider profiles are configured yet." in joined
+
+
+@pytest.mark.anyio
+async def test_splash_screen_dismisses_on_any_key(tmp_path: Path) -> None:
+    manager = ConfigManager(root=tmp_path)
+    translator = Translator("en")
+    logger = logging.getLogger("test-app-splash-key")
+    logger.handlers.clear()
+    logger.addHandler(logging.NullHandler())
+    runtime = TriadRuntime(
+        config_manager=manager,
+        settings=UserSettings(language="en"),
+        profiles={},
+        translator=translator,
+        model_gateway=IdleGateway(),
+        tool_broker=ToolBroker(workspace=tmp_path),
+        logger=logger,
+    )
+    app = TriadApp(runtime=runtime, translator=translator, config_manager=manager, splash_timeout=5.0)
+
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        assert isinstance(app.screen, SplashScreen)
+        await pilot.press("x")
+        await pilot.pause()
+        assert not isinstance(app.screen, SplashScreen)
+
+
+@pytest.mark.anyio
+async def test_splash_screen_auto_dismisses_after_timeout(tmp_path: Path) -> None:
+    manager = ConfigManager(root=tmp_path)
+    translator = Translator("en")
+    logger = logging.getLogger("test-app-splash-timeout")
+    logger.handlers.clear()
+    logger.addHandler(logging.NullHandler())
+    runtime = TriadRuntime(
+        config_manager=manager,
+        settings=UserSettings(language="en"),
+        profiles={},
+        translator=translator,
+        model_gateway=IdleGateway(),
+        tool_broker=ToolBroker(workspace=tmp_path),
+        logger=logger,
+    )
+    app = TriadApp(
+        runtime=runtime,
+        translator=translator,
+        config_manager=manager,
+        splash_timeout=0.2,
+    )
+
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        assert isinstance(app.screen, SplashScreen)
+        await asyncio.sleep(0.3)
+        await pilot.pause()
+        assert not isinstance(app.screen, SplashScreen)
 
 
 @pytest.mark.anyio
@@ -134,7 +191,7 @@ async def test_app_toggles_reasoning_visibility(tmp_path: Path) -> None:
         tool_broker=ToolBroker(workspace=tmp_path),
         logger=logger,
     )
-    app = TriadApp(runtime=runtime, translator=translator, config_manager=manager)
+    app = TriadApp(runtime=runtime, translator=translator, config_manager=manager, show_splash=False)
 
     async with app.run_test() as pilot:
         await app._add_block("Reasoning", "thinking", "reasoning")
@@ -161,7 +218,7 @@ async def test_app_toggles_tool_result_visibility(tmp_path: Path) -> None:
         tool_broker=ToolBroker(workspace=tmp_path),
         logger=logger,
     )
-    app = TriadApp(runtime=runtime, translator=translator, config_manager=manager)
+    app = TriadApp(runtime=runtime, translator=translator, config_manager=manager, show_splash=False)
 
     async with app.run_test() as pilot:
         await app._add_block("Tool", "output", "tool")
@@ -188,7 +245,7 @@ async def test_app_starts_new_conversation(tmp_path: Path) -> None:
         tool_broker=ToolBroker(workspace=tmp_path),
         logger=logger,
     )
-    app = TriadApp(runtime=runtime, translator=translator, config_manager=manager)
+    app = TriadApp(runtime=runtime, translator=translator, config_manager=manager, show_splash=False)
 
     async with app.run_test() as pilot:
         await app._add_block("User", "hello", "user")
@@ -214,7 +271,7 @@ async def test_composer_ctrl_j_inserts_newline(tmp_path: Path) -> None:
         tool_broker=ToolBroker(workspace=tmp_path),
         logger=logger,
     )
-    app = TriadApp(runtime=runtime, translator=translator, config_manager=manager)
+    app = TriadApp(runtime=runtime, translator=translator, config_manager=manager, show_splash=False)
 
     async with app.run_test() as pilot:
         composer = app.query_one("#composer", ComposerArea)
@@ -239,7 +296,7 @@ async def test_composer_ctrl_e_opens_expanded_editor(tmp_path: Path) -> None:
         tool_broker=ToolBroker(workspace=tmp_path),
         logger=logger,
     )
-    app = TriadApp(runtime=runtime, translator=translator, config_manager=manager)
+    app = TriadApp(runtime=runtime, translator=translator, config_manager=manager, show_splash=False)
 
     async with app.run_test() as pilot:
         composer = app.query_one("#composer", ComposerArea)
@@ -264,6 +321,7 @@ async def test_permission_screen_has_keyboard_shortcuts(tmp_path: Path) -> None:
         ),
         translator=Translator("en"),
         config_manager=ConfigManager(root=tmp_path),
+        show_splash=False,
     )
 
     async with app.run_test():
@@ -295,7 +353,7 @@ async def test_prompt_permission_resolves_on_enter(tmp_path: Path) -> None:
         tool_broker=ToolBroker(workspace=tmp_path),
         logger=logger,
     )
-    app = TriadApp(runtime=runtime, translator=translator, config_manager=manager)
+    app = TriadApp(runtime=runtime, translator=translator, config_manager=manager, show_splash=False)
 
     async with app.run_test() as pilot:
         worker = app.run_worker(
@@ -325,7 +383,7 @@ async def test_prompt_permission_resolves_on_escape(tmp_path: Path) -> None:
         tool_broker=ToolBroker(workspace=tmp_path),
         logger=logger,
     )
-    app = TriadApp(runtime=runtime, translator=translator, config_manager=manager)
+    app = TriadApp(runtime=runtime, translator=translator, config_manager=manager, show_splash=False)
 
     async with app.run_test() as pilot:
         worker = app.run_worker(
@@ -383,7 +441,7 @@ async def test_full_tool_flow_resolves_permission_modal_from_worker(tmp_path: Pa
         tool_broker=ToolBroker(workspace=tmp_path),
         logger=logger,
     )
-    app = TriadApp(runtime=runtime, translator=translator, config_manager=manager)
+    app = TriadApp(runtime=runtime, translator=translator, config_manager=manager, show_splash=False)
 
     async with app.run_test() as pilot:
         await app._dispatch_input("check workspace")
@@ -431,7 +489,7 @@ async def test_editor_send_dispatches_through_normal_pipeline(tmp_path: Path) ->
         tool_broker=ToolBroker(workspace=tmp_path),
         logger=logger,
     )
-    app = TriadApp(runtime=runtime, translator=translator, config_manager=manager)
+    app = TriadApp(runtime=runtime, translator=translator, config_manager=manager, show_splash=False)
 
     async with app.run_test() as pilot:
         composer = app.query_one("#composer", ComposerArea)
@@ -467,7 +525,7 @@ async def test_busy_messages_are_queued_and_run_in_order(tmp_path: Path) -> None
         tool_broker=ToolBroker(workspace=tmp_path),
         logger=logger,
     )
-    app = TriadApp(runtime=runtime, translator=translator, config_manager=manager)
+    app = TriadApp(runtime=runtime, translator=translator, config_manager=manager, show_splash=False)
 
     async with app.run_test() as pilot:
         await app._dispatch_input("first request")
@@ -507,7 +565,7 @@ async def test_cancel_button_cancels_current_turn_and_runs_next_queued_message(t
         tool_broker=ToolBroker(workspace=tmp_path),
         logger=logger,
     )
-    app = TriadApp(runtime=runtime, translator=translator, config_manager=manager)
+    app = TriadApp(runtime=runtime, translator=translator, config_manager=manager, show_splash=False)
 
     async with app.run_test() as pilot:
         await app._dispatch_input("first request")

@@ -35,6 +35,7 @@ That makes the second model a grounded review layer rather than a second paralle
 ## Features
 
 - scrollable transcript with fixed bottom composer
+- retro ASCII splash screen on startup, dismissed by any key or after 5 seconds
 - two-line composer with `Enter` to send, `Ctrl+J` for a newline, and `Ctrl+E` for an expanded editor
 - FIFO turn queue when new prompts are submitted while another turn is running
 - cancel button and `/cancel` support for the active turn
