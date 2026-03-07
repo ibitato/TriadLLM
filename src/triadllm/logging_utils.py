@@ -6,7 +6,7 @@ from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
 from typing import Any
 
-from multibrainllm.domain import UserSettings
+from triadllm.domain import UserSettings
 
 REDACT_KEYS = {"api_key", "authorization", "token", "secret"}
 TRUNCATE_AT = 800
@@ -43,7 +43,7 @@ class JsonFormatter(logging.Formatter):
 
 
 def configure_logging(log_file: str, settings: UserSettings) -> logging.Logger:
-    logger = logging.getLogger("multibrainllm")
+    logger = logging.getLogger("triadllm")
     logger.setLevel(settings.log_level.upper())
     logger.handlers.clear()
     logger.propagate = False

@@ -9,10 +9,10 @@ from textual.containers import Container, Horizontal, VerticalScroll
 from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Static
 
-from multibrainllm.config import ConfigManager
-from multibrainllm.domain import AgentRole, PermissionMode, SessionEvent, SessionEventKind, ToolRequest
-from multibrainllm.i18n import Translator
-from multibrainllm.runtime import MultiBrainRuntime
+from triadllm.config import ConfigManager
+from triadllm.domain import AgentRole, PermissionMode, SessionEvent, SessionEventKind, ToolRequest
+from triadllm.i18n import Translator
+from triadllm.runtime import TriadRuntime
 
 
 class PermissionScreen(ModalScreen[bool]):
@@ -112,7 +112,7 @@ class ChatBlock(Static):
         self.border_title = title
 
 
-class MultiBrainApp(App[None]):
+class TriadApp(App[None]):
     CSS = """
     Screen {
         background: #0a0f0d;
@@ -220,7 +220,7 @@ class MultiBrainApp(App[None]):
 
     def __init__(
         self,
-        runtime: MultiBrainRuntime,
+        runtime: TriadRuntime,
         translator: Translator,
         config_manager: ConfigManager,
     ) -> None:

@@ -1,5 +1,5 @@
-from multibrainllm.domain import AgentRole
-from multibrainllm.prompts import AVAILABLE_TOOLS, build_agent_prompt
+from triadllm.domain import AgentRole
+from triadllm.prompts import AVAILABLE_TOOLS, build_agent_prompt
 
 
 def test_processor_prompt_lists_supported_tools() -> None:

@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This file is a working guide for coding agents that modify, maintain, test, or document `MultiBrainLLM`.
+This file is a working guide for coding agents that modify, maintain, test, or document `TriadLLM`.
 
 The project is a Python `3.13` terminal application with a `Textual` TUI and a three-agent runtime built around a proposal-validation-consolidation workflow:
 
@@ -37,28 +37,28 @@ The codebase is designed around:
 
 Main modules:
 
-- `src/multibrainllm/app.py`
+- `src/triadllm/app.py`
   TUI, slash commands, transcript rendering, permission modal, reasoning visibility.
 
-- `src/multibrainllm/runtime.py`
+- `src/triadllm/runtime.py`
   Turn orchestration, clarification resume flow, proposal-validation loop, event emission, session persistence.
 
-- `src/multibrainllm/providers.py`
+- `src/triadllm/providers.py`
   Provider abstraction, official OpenAI/Mistral SDK usage, OpenAI-compatible local backends, repair/fallback logic.
 
-- `src/multibrainllm/tools.py`
+- `src/triadllm/tools.py`
   Tool broker, permission gating, cross-platform local tool implementations.
 
-- `src/multibrainllm/prompts.py`
+- `src/triadllm/prompts.py`
   Agent prompts, tool usage guidance, behavioral constraints.
 
-- `src/multibrainllm/domain.py`
+- `src/triadllm/domain.py`
   Typed contracts, schemas, enums, shared models.
 
-- `src/multibrainllm/config.py`
+- `src/triadllm/config.py`
   Settings and profiles loading, platform-specific paths.
 
-- `src/multibrainllm/logging_utils.py`
+- `src/triadllm/logging_utils.py`
   Structured JSON logging, redaction, rotation.
 
 
@@ -115,7 +115,7 @@ When adding a provider:
 3. preserve the common runtime interface
 4. add tests for parsing and failure handling
 5. update `README.md`
-6. update `src/multibrainllm/examples/profiles.yaml`
+6. update `src/triadllm/examples/profiles.yaml`
 
 
 ## Prompt Engineering Rules
@@ -299,7 +299,7 @@ Whenever you change:
 you must review and update:
 
 - `README.md`
-- `src/multibrainllm/examples/profiles.yaml`
+- `src/triadllm/examples/profiles.yaml`
 - any user-facing wording affected by the change
 
 Do not leave the README behind the implementation.
@@ -347,13 +347,13 @@ uv build
 Run the app:
 
 ```bash
-uv run multibrain
+uv run triad
 ```
 
 Follow logs:
 
 ```bash
-tail -f ~/.local/state/MultiBrainLLM/log/multibrain.log
+tail -f ~/.local/state/TriadLLM/log/triadllm.log
 ```
 
 

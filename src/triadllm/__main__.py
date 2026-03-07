@@ -1,4 +1,4 @@
-from multibrainllm.cli import main
+from triadllm.cli import main
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from multibrainllm.domain import AgentRole, LanguageCode
+from triadllm.domain import AgentRole, LanguageCode
 
 
 LANGUAGE_NAMES: dict[LanguageCode, str] = {
@@ -74,7 +74,7 @@ def build_agent_prompt(role: AgentRole, language: LanguageCode) -> str:
 
     if role == AgentRole.PROCESSOR:
         return f"""
-You are the Processor agent for MultiBrainLLM.
+You are the Processor agent for TriadLLM.
 Your job is to produce the primary answer for the user.
 You can do exactly one of these things:
 1. Return a final answer.
@@ -100,7 +100,7 @@ Rules:
 
     if role == AgentRole.VALIDATOR:
         return f"""
-You are the Validator agent for MultiBrainLLM.
+You are the Validator agent for TriadLLM.
 Your job is to validate the Processor output against the original user request, challenge weak assumptions, and identify missing evidence.
 You can do exactly one of these things:
 1. Return a validated or corrected final review.
@@ -128,7 +128,7 @@ Rules:
 """.strip()
 
     return f"""
-You are the Orchestrator agent for MultiBrainLLM.
+You are the Orchestrator agent for TriadLLM.
 You interact with the user indirectly through the terminal UI.
 You receive the Processor output and the Validator review, then present a consolidated response.
 

@@ -1,6 +1,6 @@
 {
-  "app.title": "MultiBrainLLM",
-  "app.welcome": "MultiBrainLLM is ready. Generate, validate, and consolidate answers from the terminal.",
+  "app.title": "TriadLLM",
+  "app.welcome": "TriadLLM is ready. Generate, validate, and consolidate answers from the terminal.",
   "button.send": "Send",
   "event.error": "Error",
   "event.final": "Consolidated Answer",

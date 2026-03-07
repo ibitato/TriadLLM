@@ -1,8 +1,8 @@
 import pytest
 
-from multibrainllm.domain import ProviderBackend, ProviderProfile, UserSettings
-from multibrainllm.providers import ProviderGateway
-from multibrainllm.domain import AgentActionKind, AgentResponse, AgentRole, ModelInvocationResult
+from triadllm.domain import ProviderBackend, ProviderProfile, UserSettings
+from triadllm.providers import ProviderGateway
+from triadllm.domain import AgentActionKind, AgentResponse, AgentRole, ModelInvocationResult
 
 
 def test_extract_mistral_message_parts() -> None:

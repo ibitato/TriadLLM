@@ -9,7 +9,7 @@ from urllib.parse import urlparse
 from mistralai import Mistral
 from openai import AsyncOpenAI
 
-from multibrainllm.domain import (
+from triadllm.domain import (
     AgentActionKind,
     AgentResponse,
     ConsolidatedResponse,
@@ -40,7 +40,7 @@ class ProviderGateway:
         self.settings = settings
         self._openai_clients: dict[str, AsyncOpenAI] = {}
         self._mistral_clients: dict[str, Mistral] = {}
-        self.logger = logging.getLogger("multibrainllm.providers")
+        self.logger = logging.getLogger("triadllm.providers")
 
     def profile_for_role(self, role: AgentRole) -> ProviderProfile:
         profile_id = self.settings.agent_profiles.get(role) or self.settings.default_profile

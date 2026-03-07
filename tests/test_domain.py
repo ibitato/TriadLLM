@@ -1,4 +1,4 @@
-from multibrainllm.domain import ConsolidatedResponse
+from triadllm.domain import ConsolidatedResponse
 
 
 def test_consolidated_response_coerces_nested_text_fields() -> None:

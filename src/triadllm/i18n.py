@@ -5,12 +5,12 @@ from functools import lru_cache
 from importlib.resources import files
 from typing import Any
 
-from multibrainllm.domain import LanguageCode
+from triadllm.domain import LanguageCode
 
 
 @lru_cache(maxsize=8)
 def _load_catalog(language: LanguageCode) -> dict[str, str]:
-    resource = files("multibrainllm").joinpath("locales", f"{language}.json")
+    resource = files("triadllm").joinpath("locales", f"{language}.json")
     return json.loads(resource.read_text(encoding="utf-8"))
 
 

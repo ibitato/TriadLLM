@@ -1,14 +1,16 @@
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 from typing import Any
 
 import yaml
 from platformdirs import PlatformDirs
 
-from multibrainllm.domain import AppPaths, ProviderProfile, UserSettings
+from triadllm.domain import AppPaths, ProviderProfile, UserSettings
 
-APP_NAME = "MultiBrainLLM"
+APP_NAME = "TriadLLM"
+LEGACY_APP_NAME = "MultiBrainLLM"
 APP_AUTHOR = "David R. Lopez B"
 
 
@@ -31,8 +33,10 @@ class ConfigManager:
             settings_path=str(config_dir / "settings.json"),
             profiles_path=str(config_dir / "profiles.yaml"),
             sessions_dir=str(data_dir / "sessions"),
-            log_file=str(log_dir / "multibrain.log"),
+            log_file=str(log_dir / "triadllm.log"),
         )
+        if root is None:
+            self._migrate_legacy_paths()
         self.ensure_directories()
 
     def ensure_directories(self) -> None:
@@ -94,3 +98,36 @@ class ConfigManager:
         if not profiles_path.exists():
             return {}
         return yaml.safe_load(profiles_path.read_text(encoding="utf-8")) or {}
+
+    def _migrate_legacy_paths(self) -> None:
+        legacy_dirs = PlatformDirs(LEGACY_APP_NAME, APP_AUTHOR, roaming=True)
+        legacy_config_dir = Path(legacy_dirs.user_config_dir)
+        legacy_data_dir = Path(legacy_dirs.user_data_dir)
+        legacy_log_dir = Path(legacy_dirs.user_log_dir)
+
+        self._copy_if_missing(legacy_config_dir / "settings.json", Path(self.paths.settings_path))
+        self._copy_if_missing(legacy_config_dir / "profiles.yaml", Path(self.paths.profiles_path))
+        self._copy_tree_if_missing(legacy_data_dir / "sessions", Path(self.paths.sessions_dir))
+        self._copy_if_missing(legacy_log_dir / "multibrain.log", Path(self.paths.log_file))
+
+    def _copy_if_missing(self, source: Path, destination: Path) -> None:
+        if not source.exists() or destination.exists():
+            return
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, destination)
+
+    def _copy_tree_if_missing(self, source: Path, destination: Path) -> None:
+        if not source.exists():
+            return
+        if not destination.exists():
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copytree(source, destination)
+            return
+        if any(destination.iterdir()):
+            return
+        for item in source.iterdir():
+            target = destination / item.name
+            if item.is_dir():
+                shutil.copytree(item, target)
+            else:
+                shutil.copy2(item, target)

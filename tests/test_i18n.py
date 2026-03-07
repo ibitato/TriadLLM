@@ -1,4 +1,4 @@
-from multibrainllm.i18n import Translator
+from triadllm.i18n import Translator
 
 
 def test_translator_falls_back_to_english() -> None:

@@ -6,7 +6,7 @@ import shutil
 from pathlib import Path
 from typing import Awaitable, Callable
 
-from multibrainllm.domain import PermissionMode, ToolRequest, ToolResult, ToolRisk
+from triadllm.domain import PermissionMode, ToolRequest, ToolResult, ToolRisk
 
 ApprovalHandler = Callable[[ToolRequest], Awaitable[bool]]
 

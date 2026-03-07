@@ -2,16 +2,16 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from multibrainllm.app import MultiBrainApp
-from multibrainllm.config import ConfigManager
-from multibrainllm.i18n import Translator
-from multibrainllm.logging_utils import configure_logging
-from multibrainllm.providers import ProviderGateway
-from multibrainllm.runtime import MultiBrainRuntime
-from multibrainllm.tools import ToolBroker
+from triadllm.app import TriadApp
+from triadllm.config import ConfigManager
+from triadllm.i18n import Translator
+from triadllm.logging_utils import configure_logging
+from triadllm.providers import ProviderGateway
+from triadllm.runtime import TriadRuntime
+from triadllm.tools import ToolBroker
 
 
-def build_runtime(config_root: str | None = None) -> MultiBrainRuntime:
+def build_runtime(config_root: str | None = None) -> TriadRuntime:
     config_manager = ConfigManager(root=None if config_root is None else Path(config_root))
     settings = config_manager.load_settings()
     profiles = config_manager.load_profiles()
@@ -22,7 +22,7 @@ def build_runtime(config_root: str | None = None) -> MultiBrainRuntime:
     logger = configure_logging(config_manager.paths.log_file, settings)
     gateway = ProviderGateway(profiles, settings)
     broker = ToolBroker()
-    return MultiBrainRuntime(
+    return TriadRuntime(
         config_manager=config_manager,
         settings=settings,
         profiles=profiles,
@@ -35,7 +35,7 @@ def build_runtime(config_root: str | None = None) -> MultiBrainRuntime:
 
 def main() -> None:
     runtime = build_runtime()
-    app = MultiBrainApp(
+    app = TriadApp(
         runtime=runtime,
         translator=runtime.translator,
         config_manager=runtime.config_manager,

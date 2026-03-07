@@ -270,7 +270,7 @@ wheels = [
 ]
 
 [[package]]
-name = "multibrainllm"
+name = "triadllm"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [

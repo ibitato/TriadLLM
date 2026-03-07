@@ -6,8 +6,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from multibrainllm.config import ConfigManager
-from multibrainllm.domain import (
+from triadllm.config import ConfigManager
+from triadllm.domain import (
     AgentActionKind,
     AgentResponse,
     AgentRole,
@@ -20,13 +20,13 @@ from multibrainllm.domain import (
     ToolResult,
     UserSettings,
 )
-from multibrainllm.i18n import Translator
-from multibrainllm.prompts import build_agent_prompt
-from multibrainllm.providers import ModelGateway
-from multibrainllm.tools import ApprovalHandler, ToolBroker
+from triadllm.i18n import Translator
+from triadllm.prompts import build_agent_prompt
+from triadllm.providers import ModelGateway
+from triadllm.tools import ApprovalHandler, ToolBroker
 
 
-class MultiBrainRuntime:
+class TriadRuntime:
     def __init__(
         self,
         config_manager: ConfigManager,

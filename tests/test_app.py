@@ -7,12 +7,12 @@ from pathlib import Path
 import pytest
 from textual.widgets import Button
 
-from multibrainllm.app import MultiBrainApp, PermissionScreen
-from multibrainllm.config import ConfigManager
-from multibrainllm.domain import ToolRequest, UserSettings
-from multibrainllm.i18n import Translator
-from multibrainllm.runtime import MultiBrainRuntime
-from multibrainllm.tools import ToolBroker
+from triadllm.app import TriadApp, PermissionScreen
+from triadllm.config import ConfigManager
+from triadllm.domain import ToolRequest, UserSettings
+from triadllm.i18n import Translator
+from triadllm.runtime import TriadRuntime
+from triadllm.tools import ToolBroker
 
 
 class IdleGateway:
@@ -27,7 +27,7 @@ async def test_app_handles_status_command(tmp_path: Path) -> None:
     logger = logging.getLogger("test-app")
     logger.handlers.clear()
     logger.addHandler(logging.NullHandler())
-    runtime = MultiBrainRuntime(
+    runtime = TriadRuntime(
         config_manager=manager,
         settings=UserSettings(language="en"),
         profiles={},
@@ -36,7 +36,7 @@ async def test_app_handles_status_command(tmp_path: Path) -> None:
         tool_broker=ToolBroker(workspace=tmp_path),
         logger=logger,
     )
-    app = MultiBrainApp(runtime=runtime, translator=translator, config_manager=manager)
+    app = TriadApp(runtime=runtime, translator=translator, config_manager=manager)
 
     async with app.run_test() as pilot:
         await pilot.press("/")
@@ -52,7 +52,7 @@ async def test_app_toggles_reasoning_visibility(tmp_path: Path) -> None:
     logger = logging.getLogger("test-app-reasoning")
     logger.handlers.clear()
     logger.addHandler(logging.NullHandler())
-    runtime = MultiBrainRuntime(
+    runtime = TriadRuntime(
         config_manager=manager,
         settings=UserSettings(language="en", show_reasoning=True),
         profiles={},
@@ -61,7 +61,7 @@ async def test_app_toggles_reasoning_visibility(tmp_path: Path) -> None:
         tool_broker=ToolBroker(workspace=tmp_path),
         logger=logger,
     )
-    app = MultiBrainApp(runtime=runtime, translator=translator, config_manager=manager)
+    app = TriadApp(runtime=runtime, translator=translator, config_manager=manager)
 
     async with app.run_test() as pilot:
         await app._add_block("Reasoning", "thinking", "reasoning")
@@ -79,7 +79,7 @@ async def test_app_toggles_tool_result_visibility(tmp_path: Path) -> None:
     logger = logging.getLogger("test-app-tools")
     logger.handlers.clear()
     logger.addHandler(logging.NullHandler())
-    runtime = MultiBrainRuntime(
+    runtime = TriadRuntime(
         config_manager=manager,
         settings=UserSettings(language="en", show_tool_results=True),
         profiles={},
@@ -88,7 +88,7 @@ async def test_app_toggles_tool_result_visibility(tmp_path: Path) -> None:
         tool_broker=ToolBroker(workspace=tmp_path),
         logger=logger,
     )
-    app = MultiBrainApp(runtime=runtime, translator=translator, config_manager=manager)
+    app = TriadApp(runtime=runtime, translator=translator, config_manager=manager)
 
     async with app.run_test() as pilot:
         await app._add_block("Tool", "output", "tool")
@@ -106,7 +106,7 @@ async def test_app_starts_new_conversation(tmp_path: Path) -> None:
     logger = logging.getLogger("test-app-new")
     logger.handlers.clear()
     logger.addHandler(logging.NullHandler())
-    runtime = MultiBrainRuntime(
+    runtime = TriadRuntime(
         config_manager=manager,
         settings=UserSettings(language="en", show_reasoning=True),
         profiles={},
@@ -115,7 +115,7 @@ async def test_app_starts_new_conversation(tmp_path: Path) -> None:
         tool_broker=ToolBroker(workspace=tmp_path),
         logger=logger,
     )
-    app = MultiBrainApp(runtime=runtime, translator=translator, config_manager=manager)
+    app = TriadApp(runtime=runtime, translator=translator, config_manager=manager)
 
     async with app.run_test() as pilot:
         await app._add_block("User", "hello", "user")
@@ -132,7 +132,7 @@ async def test_prompt_permission_uses_screen_callback_result(tmp_path: Path) -> 
     logger = logging.getLogger("test-app-permission")
     logger.handlers.clear()
     logger.addHandler(logging.NullHandler())
-    runtime = MultiBrainRuntime(
+    runtime = TriadRuntime(
         config_manager=manager,
         settings=UserSettings(language="en"),
         profiles={},
@@ -141,7 +141,7 @@ async def test_prompt_permission_uses_screen_callback_result(tmp_path: Path) -> 
         tool_broker=ToolBroker(workspace=tmp_path),
         logger=logger,
     )
-    app = MultiBrainApp(runtime=runtime, translator=translator, config_manager=manager)
+    app = TriadApp(runtime=runtime, translator=translator, config_manager=manager)
 
     def fake_push_screen(screen, callback=None, wait_for_dismiss=False, mode=None):  # noqa: ANN001, ANN202
         assert callback is not None
@@ -160,8 +160,8 @@ async def test_prompt_permission_uses_screen_callback_result(tmp_path: Path) -> 
 
 @pytest.mark.anyio
 async def test_permission_screen_has_keyboard_shortcuts(tmp_path: Path) -> None:
-    app = MultiBrainApp(
-        runtime=MultiBrainRuntime(
+    app = TriadApp(
+        runtime=TriadRuntime(
             config_manager=ConfigManager(root=tmp_path),
             settings=UserSettings(language="en"),
             profiles={},
@@ -194,7 +194,7 @@ async def test_prompt_permission_resolves_on_enter(tmp_path: Path) -> None:
     logger = logging.getLogger("test-app-permission-enter")
     logger.handlers.clear()
     logger.addHandler(logging.NullHandler())
-    runtime = MultiBrainRuntime(
+    runtime = TriadRuntime(
         config_manager=manager,
         settings=UserSettings(language="en"),
         profiles={},
@@ -203,7 +203,7 @@ async def test_prompt_permission_resolves_on_enter(tmp_path: Path) -> None:
         tool_broker=ToolBroker(workspace=tmp_path),
         logger=logger,
     )
-    app = MultiBrainApp(runtime=runtime, translator=translator, config_manager=manager)
+    app = TriadApp(runtime=runtime, translator=translator, config_manager=manager)
 
     async with app.run_test() as pilot:
         task = asyncio.create_task(
@@ -222,7 +222,7 @@ async def test_prompt_permission_resolves_on_escape(tmp_path: Path) -> None:
     logger = logging.getLogger("test-app-permission-escape")
     logger.handlers.clear()
     logger.addHandler(logging.NullHandler())
-    runtime = MultiBrainRuntime(
+    runtime = TriadRuntime(
         config_manager=manager,
         settings=UserSettings(language="en"),
         profiles={},
@@ -231,7 +231,7 @@ async def test_prompt_permission_resolves_on_escape(tmp_path: Path) -> None:
         tool_broker=ToolBroker(workspace=tmp_path),
         logger=logger,
     )
-    app = MultiBrainApp(runtime=runtime, translator=translator, config_manager=manager)
+    app = TriadApp(runtime=runtime, translator=translator, config_manager=manager)
 
     async with app.run_test() as pilot:
         task = asyncio.create_task(

@@ -1,6 +1,6 @@
-# MultiBrainLLM
+# TriadLLM
 
-`MultiBrainLLM` is a terminal chat application that runs each user turn through a three-stage LLM workflow:
+`TriadLLM` is a terminal chat application that runs each user turn through a three-stage LLM workflow:
 
 - `processor`: produces the primary answer
 - `validator`: validates that answer against the original user request and any gathered evidence
@@ -46,23 +46,25 @@ If `processor` or `validator` asks for more data, the runtime pauses, surfaces t
 ```bash
 uv python install 3.13
 uv sync
-uv run multibrain
+uv run triad
 ```
 
 By default the app looks for config under the platform-specific user config directory:
 
-- Linux: `~/.config/MultiBrainLLM`
-- macOS: `~/Library/Application Support/MultiBrainLLM`
-- Windows: `%APPDATA%\MultiBrainLLM`
+- Linux: `~/.config/TriadLLM`
+- macOS: `~/Library/Application Support/TriadLLM`
+- Windows: `%APPDATA%\TriadLLM`
 
-Copy the example provider config from [`src/multibrainllm/examples/profiles.yaml`](src/multibrainllm/examples/profiles.yaml) to your user config directory as `profiles.yaml`, then export the matching API key variable.
+Copy the example provider config from [`src/triadllm/examples/profiles.yaml`](src/triadllm/examples/profiles.yaml) to your user config directory as `profiles.yaml`, then export the matching API key variable.
+
+On first launch, `TriadLLM` will automatically reuse legacy local config from `MultiBrainLLM` if it finds existing settings, profiles, sessions, or logs.
 
 The app persists:
 
 - `settings.json`: language, permission mode, reasoning visibility, default profile and per-role assignments
 - `profiles.yaml`: provider/model definitions
 - `sessions/*.jsonl`: conversation event history
-- `multibrain.log`: structured runtime log
+- `triadllm.log`: structured runtime log
 
 ## Provider Support
 

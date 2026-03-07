@@ -7,8 +7,8 @@ from typing import Any
 import pytest
 from pydantic import BaseModel
 
-from multibrainllm.config import ConfigManager
-from multibrainllm.domain import (
+from triadllm.config import ConfigManager
+from triadllm.domain import (
     AgentActionKind,
     AgentResponse,
     AgentRole,
@@ -20,9 +20,9 @@ from multibrainllm.domain import (
     ToolRequest,
     UserSettings,
 )
-from multibrainllm.i18n import Translator
-from multibrainllm.runtime import MultiBrainRuntime
-from multibrainllm.tools import ToolBroker
+from triadllm.i18n import Translator
+from triadllm.runtime import TriadRuntime
+from triadllm.tools import ToolBroker
 
 
 class FakeGateway:
@@ -43,14 +43,14 @@ class FakeGateway:
         return response
 
 
-def build_runtime(tmp_path: Path, gateway: FakeGateway) -> MultiBrainRuntime:
+def build_runtime(tmp_path: Path, gateway: FakeGateway) -> TriadRuntime:
     manager = ConfigManager(root=tmp_path)
     settings = UserSettings(language="es", permission_mode=PermissionMode.ASK)
     translator = Translator("es")
     logger = logging.getLogger(f"test-runtime-{tmp_path}")
     logger.handlers.clear()
     logger.addHandler(logging.NullHandler())
-    return MultiBrainRuntime(
+    return TriadRuntime(
         config_manager=manager,
         settings=settings,
         profiles={},
