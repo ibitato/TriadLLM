@@ -24,6 +24,8 @@ SPLASH_ART = r"""
    | | | | (_| | | (_| | (_| | |___| |___| |  | |
    |_|_|  \__,_|_|\__,_|\__,_|_____|_____|_|  |_|
 """
+SPLASH_ART_WIDTH = 49
+SPLASH_DIALOG_WIDTH = 58
 
 
 class SplashScreen(ModalScreen[None]):
@@ -38,26 +40,33 @@ class SplashScreen(ModalScreen[None]):
     }
 
     #splash-dialog {
-        width: auto;
-        max-width: 88;
+        width: 58;
+        height: auto;
         padding: 1 2;
         border: round #1f6f46;
         background: #09100c;
     }
 
     #splash-art {
+        width: 49;
+        height: 6;
         color: #ff9f1c;
         text-style: bold;
+        content-align: center middle;
     }
 
     #splash-tagline {
         margin-top: 1;
         color: #b6ff7a;
+        width: 100%;
+        content-align: center middle;
     }
 
     #splash-help {
         margin-top: 1;
         color: #ffcf70;
+        width: 100%;
+        content-align: center middle;
     }
     """
 
@@ -70,7 +79,7 @@ class SplashScreen(ModalScreen[None]):
     def compose(self) -> ComposeResult:
         with CenterMiddle():
             with Container(id="splash-dialog"):
-                yield Static(SPLASH_ART.rstrip("\n"), id="splash-art")
+                yield Static(SPLASH_ART.strip("\n"), id="splash-art")
                 yield Static(self.translator.t("splash.tagline"), id="splash-tagline")
                 yield Static(self.translator.t("splash.help"), id="splash-help")
 
