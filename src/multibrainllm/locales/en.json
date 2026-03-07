@@ -21,6 +21,7 @@
   "input.placeholder": "Type a message or /command",
   "permission.approve": "Approve",
   "permission.deny": "Deny",
+  "permission.help": "Keys: Enter/a = approve, Esc/d/q = deny",
   "permission.summary": "Tool: {tool}\nReason: {reason}\nRisk: {risk}\nArguments: {args}",
   "permission.title": "Approve tool execution?",
   "slash.clear": "Transcript cleared.",

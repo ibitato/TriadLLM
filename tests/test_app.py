@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 from pathlib import Path
 
@@ -184,3 +185,59 @@ async def test_permission_screen_has_keyboard_shortcuts(tmp_path: Path) -> None:
         assert approve_button is not None
         assert ("enter", "approve", "Approve") in screen.BINDINGS
         assert ("escape", "deny", "Deny") in screen.BINDINGS
+
+
+@pytest.mark.anyio
+async def test_prompt_permission_resolves_on_enter(tmp_path: Path) -> None:
+    manager = ConfigManager(root=tmp_path)
+    translator = Translator("en")
+    logger = logging.getLogger("test-app-permission-enter")
+    logger.handlers.clear()
+    logger.addHandler(logging.NullHandler())
+    runtime = MultiBrainRuntime(
+        config_manager=manager,
+        settings=UserSettings(language="en"),
+        profiles={},
+        translator=translator,
+        model_gateway=IdleGateway(),
+        tool_broker=ToolBroker(workspace=tmp_path),
+        logger=logger,
+    )
+    app = MultiBrainApp(runtime=runtime, translator=translator, config_manager=manager)
+
+    async with app.run_test() as pilot:
+        task = asyncio.create_task(
+            app._prompt_permission(ToolRequest(tool="list_dir", arguments={"path": "."}, reason="test"))
+        )
+        await pilot.pause()
+        assert isinstance(app.screen, PermissionScreen)
+        await pilot.press("enter")
+        assert await asyncio.wait_for(task, timeout=2) is True
+
+
+@pytest.mark.anyio
+async def test_prompt_permission_resolves_on_escape(tmp_path: Path) -> None:
+    manager = ConfigManager(root=tmp_path)
+    translator = Translator("en")
+    logger = logging.getLogger("test-app-permission-escape")
+    logger.handlers.clear()
+    logger.addHandler(logging.NullHandler())
+    runtime = MultiBrainRuntime(
+        config_manager=manager,
+        settings=UserSettings(language="en"),
+        profiles={},
+        translator=translator,
+        model_gateway=IdleGateway(),
+        tool_broker=ToolBroker(workspace=tmp_path),
+        logger=logger,
+    )
+    app = MultiBrainApp(runtime=runtime, translator=translator, config_manager=manager)
+
+    async with app.run_test() as pilot:
+        task = asyncio.create_task(
+            app._prompt_permission(ToolRequest(tool="list_dir", arguments={"path": "."}, reason="test"))
+        )
+        await pilot.pause()
+        assert isinstance(app.screen, PermissionScreen)
+        await pilot.press("escape")
+        assert await asyncio.wait_for(task, timeout=2) is False

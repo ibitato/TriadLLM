@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import shlex
 
-from textual import on
+from textual import events, on
 from textual.app import App, ComposeResult
 from textual.containers import Container, Horizontal, VerticalScroll
 from textual.screen import ModalScreen
@@ -43,6 +43,11 @@ class PermissionScreen(ModalScreen[bool]):
         align: right middle;
     }
 
+    #permission-help {
+        margin-top: 1;
+        color: #ffcf70;
+    }
+
     Button {
         margin-left: 1;
     }
@@ -64,6 +69,7 @@ class PermissionScreen(ModalScreen[bool]):
         with Container(id="permission-dialog"):
             yield Static(self.translator.t("permission.title"), classes="modal-title")
             yield Static(summary)
+            yield Static(self.translator.t("permission.help"), id="permission-help")
             with Horizontal(id="permission-actions"):
                 yield Button(self.translator.t("permission.deny"), id="deny")
                 yield Button(self.translator.t("permission.approve"), id="approve", variant="success")
@@ -76,13 +82,27 @@ class PermissionScreen(ModalScreen[bool]):
 
     @on(Button.Pressed)
     def handle_button(self, event: Button.Pressed) -> None:
-        self.dismiss(event.button.id == "approve")
+        self._finish(event.button.id == "approve")
 
     def action_approve(self) -> None:
-        self.dismiss(True)
+        self._finish(True)
 
     def action_deny(self) -> None:
-        self.dismiss(False)
+        self._finish(False)
+
+    def on_key(self, event: events.Key) -> None:
+        key = event.key.lower()
+        if key in {"enter", "a"}:
+            event.stop()
+            self._finish(True)
+            return
+        if key in {"escape", "q", "d"}:
+            event.stop()
+            self._finish(False)
+
+    def _finish(self, approved: bool) -> None:
+        if self.is_active:
+            self.dismiss(approved)
 
 
 class ChatBlock(Static):
@@ -420,8 +440,25 @@ class MultiBrainApp(App[None]):
             if not result_future.done():
                 result_future.set_result(bool(result))
 
+        self.runtime.logger.info(
+            "permission_prompt_shown",
+            extra={
+                "tool": request.tool,
+                "risk": request.risk.value,
+                "arguments": request.arguments,
+                "reason": request.reason,
+            },
+        )
         self.push_screen(PermissionScreen(request, self.translator), callback=handle_result)
-        return await result_future
+        approved = await result_future
+        self.runtime.logger.info(
+            "permission_prompt_resolved",
+            extra={
+                "tool": request.tool,
+                "approved": approved,
+            },
+        )
+        return approved
 
     def _apply_visibility_settings(self) -> None:
         transcript = self.query_one("#transcript", VerticalScroll)
