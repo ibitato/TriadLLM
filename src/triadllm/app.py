@@ -841,7 +841,7 @@ class TriadApp(App[None]):
                 profiles_count=len(profiles_data),
                 sample_profiles=snapshot["sample_profiles"],
             )
-        elif command == "/config edit":
+        elif command == "/config" and args and args[0] == "edit":
             # Open interactive configuration editor
             settings = self.runtime.settings
             profiles = self.runtime.profiles
