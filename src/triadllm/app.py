@@ -316,6 +316,229 @@ class EditorScreen(ModalScreen[str | None]):
         self.dismiss(None)
 
 
+class ConfigEditorScreen(ModalScreen[str | None]):
+    """Interactive configuration editor screen."""
+    
+    BINDINGS = [
+        ("escape", "cancel", "Cancel"),
+        ("ctrl+s", "save", "Save"),
+    ]
+
+    CSS = """
+    ConfigEditorScreen {
+        background: rgba(0, 0, 0, 0.85);
+    }
+
+    CenterMiddle {
+        width: 100%;
+        height: 100%;
+    }
+
+    #config-editor-dialog {
+        width: 80;
+        height: auto;
+        max-height: 90%;
+        padding: 1 2;
+        border: round #ff9f1c;
+        background: #0b0f0c;
+    }
+
+    #config-title {
+        color: #ff9f1c;
+        text-style: bold;
+    }
+
+    #config-body {
+        height: auto;
+        margin-top: 1;
+        overflow-y: auto;
+    }
+
+    #config-field {
+        margin-bottom: 1;
+    }
+
+    #config-label {
+        color: #b6ff7a;
+    }
+
+    #config-input {
+        width: 100%;
+        background: #111111;
+        color: #f2ffd4;
+        border: round #1f6f46;
+    }
+
+    #config-actions {
+        height: auto;
+        margin-top: 1;
+        align: right middle;
+    }
+
+    #config-actions Button {
+        margin-left: 1;
+    }
+    """
+
+    def __init__(self, settings: dict, profiles: dict, translator: Translator) -> None:
+        super().__init__()
+        self.settings = settings
+        self.profiles = profiles
+        self.translator = translator
+        self.current_values = settings.copy()
+        self.validation_errors = {}
+
+    def compose(self) -> ComposeResult:
+        with CenterMiddle():
+            with Container(id="config-editor-dialog"):
+                yield Static(self.translator.t("config_editor.title"), id="config-title")
+                yield Static(self.translator.t("config_editor.instructions"), id="config-instructions")
+                
+                with Container(id="config-body"):
+                    # Language field
+                    with Container(id="config-field"):
+                        yield Static("Language:", id="config-label")
+                        self.language_input = TextArea(
+                            str(self.current_values.get("language", "")),
+                            id="config-input",
+                            soft_wrap=True,
+                            show_line_numbers=False,
+                        )
+                        yield self.language_input
+                        self.language_error = Static("", id="config-error")
+                        yield self.language_error
+                    
+                    # Permission mode field
+                    with Container(id="config-field"):
+                        yield Static("Permission Mode:", id="config-label")
+                        self.permission_input = TextArea(
+                            str(self.current_values.get("permission_mode", "")),
+                            id="config-input",
+                            soft_wrap=True,
+                            show_line_numbers=False,
+                        )
+                        yield self.permission_input
+                        self.permission_error = Static("", id="config-error")
+                        yield self.permission_error
+                    
+                    # Show reasoning field
+                    with Container(id="config-field"):
+                        yield Static("Show Reasoning:", id="config-label")
+                        self.reasoning_input = TextArea(
+                            str(self.current_values.get("show_reasoning", "")),
+                            id="config-input",
+                            soft_wrap=True,
+                            show_line_numbers=False,
+                        )
+                        yield self.reasoning_input
+                        self.reasoning_error = Static("", id="config-error")
+                        yield self.reasoning_error
+                    
+                    # Show tool results field
+                    with Container(id="config-field"):
+                        yield Static("Show Tool Results:", id="config-label")
+                        self.toolresults_input = TextArea(
+                            str(self.current_values.get("show_tool_results", "")),
+                            id="config-input",
+                            soft_wrap=True,
+                            show_line_numbers=False,
+                        )
+                        yield self.toolresults_input
+                        self.toolresults_error = Static("", id="config-error")
+                        yield self.toolresults_error
+                    
+                    # Default profile field
+                    with Container(id="config-field"):
+                        yield Static("Default Profile:", id="config-label")
+                        self.profile_input = TextArea(
+                            str(self.current_values.get("default_profile", "")),
+                            id="config-input",
+                            soft_wrap=True,
+                            show_line_numbers=False,
+                        )
+                        yield self.profile_input
+                        self.profile_error = Static("", id="config-error")
+                        yield self.profile_error
+                
+                with Horizontal(id="config-actions"):
+                    yield Button(self.translator.t("config_editor.cancel"), id="cancel", variant="default")
+                    yield Button(self.translator.t("config_editor.save"), id="save", variant="success")
+
+    def on_mount(self) -> None:
+        self.call_after_refresh(self._focus_first_field)
+
+    def _focus_first_field(self) -> None:
+        self.language_input.focus()
+
+    def _validate_all(self) -> bool:
+        """Validate all fields and return True if all are valid."""
+        self.validation_errors = {}
+        
+        # Validate language
+        language = self.language_input.text.strip()
+        if language not in ["en", "es"]:
+            self.validation_errors["language"] = self.translator.t("config_editor.error.language")
+            self.language_error.update(self.validation_errors["language"])
+        else:
+            self.language_error.update("")
+            self.current_values["language"] = language
+        
+        # Validate permission mode
+        permission = self.permission_input.text.strip()
+        if permission not in ["ask", "yolo"]:
+            self.validation_errors["permission_mode"] = self.translator.t("config_editor.error.permission")
+            self.permission_error.update(self.validation_errors["permission_mode"])
+        else:
+            self.permission_error.update("")
+            self.current_values["permission_mode"] = permission
+        
+        # Validate boolean fields
+        for field_name, input_field, error_field in [
+            ("show_reasoning", self.reasoning_input, self.reasoning_error),
+            ("show_tool_results", self.toolresults_input, self.toolresults_error)
+        ]:
+            value = input_field.text.strip().lower()
+            if value not in ["true", "false"]:
+                self.validation_errors[field_name] = self.translator.t("config_editor.error.boolean")
+                error_field.update(self.validation_errors[field_name])
+            else:
+                error_field.update("")
+                self.current_values[field_name] = value == "true"
+        
+        # Validate default profile
+        profile = self.profile_input.text.strip()
+        if profile and profile not in self.profiles:
+            self.validation_errors["default_profile"] = self.translator.t("config_editor.error.profile", profile=profile)
+            self.profile_error.update(self.validation_errors["default_profile"])
+        else:
+            self.profile_error.update("")
+            self.current_values["default_profile"] = profile if profile else None
+        
+        return len(self.validation_errors) == 0
+
+    @on(Button.Pressed)
+    def handle_button(self, event: Button.Pressed) -> None:
+        if event.button.id == "save":
+            self.action_save()
+        else:
+            self.action_cancel()
+
+    def action_save(self) -> None:
+        if self._validate_all():
+            self.dismiss(self.current_values)
+
+    def action_cancel(self) -> None:
+        self.dismiss(None)
+
+    def on_key(self, event: events.Key) -> None:
+        if event.key == "escape":
+            event.stop()
+            self.action_cancel()
+        elif event.key == "ctrl+s":
+            event.stop()
+            self.action_save()
+
+
 class ChatBlock(Static):
     def __init__(self, title: str, body: str, kind: str) -> None:
         super().__init__(body, classes=f"chat-block {kind}")
@@ -618,6 +841,55 @@ class TriadApp(App[None]):
                 profiles_count=len(profiles_data),
                 sample_profiles=snapshot["sample_profiles"],
             )
+        elif command == "/config edit":
+            # Open interactive configuration editor
+            settings = self.runtime.settings
+            profiles = self.runtime.profiles
+            
+            async def handle_edit_result(result: str | None) -> None:
+                if result is None:
+                    # User cancelled
+                    body = self.translator.t("config_editor.cancelled")
+                else:
+                    # User saved changes
+                    try:
+                        # Update runtime settings
+                        if "language" in result:
+                            self.runtime.set_language(result["language"])
+                        if "permission_mode" in result:
+                            self.runtime.set_permission_mode(result["permission_mode"])
+                        if "show_reasoning" in result:
+                            self.runtime.set_reasoning_visibility(result["show_reasoning"])
+                        if "show_tool_results" in result:
+                            self.runtime.set_tool_results_visibility(result["show_tool_results"])
+                        if "default_profile" in result and result["default_profile"]:
+                            self.runtime.set_default_profile(result["default_profile"])
+                        
+                        # Save settings to disk
+                        self.config_manager.save_settings(self.runtime.settings)
+                        
+                        # Show success message
+                        body = self.translator.t("config_editor.saved")
+                        
+                        # Refresh UI if language changed
+                        if "language" in result:
+                            self._refresh_chrome()
+                    except Exception as e:
+                        body = self.translator.t("config_editor.error.save", error=str(e))
+                
+                await self._add_block(
+                    self.translator.t("event.system"),
+                    body,
+                    "system"
+                )
+                self._refresh_status()
+            
+            # Push the editor screen
+            self.push_screen(
+                ConfigEditorScreen(settings, profiles, self.translator),
+                callback=handle_edit_result
+            )
+            return
         elif command == "/permissions":
             if not args or args[0] not in {"ask", "yolo"}:
                 body = self.translator.t("slash.permissions.invalid")

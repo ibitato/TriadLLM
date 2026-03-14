@@ -62,5 +62,16 @@
   "status.off": "off",
   "status.on": "on",
   "status.ready": "ready",
-  "system.error": "Runtime error: {error}"
+  "system.error": "Runtime error: {error}",
+  "config_editor.title": "Edit Configuration",
+  "config_editor.instructions": "Modify settings below. Press Ctrl+S to save or Esc to cancel.",
+  "config_editor.cancel": "Cancel",
+  "config_editor.save": "Save",
+  "config_editor.cancelled": "Configuration editing cancelled. No changes were made.",
+  "config_editor.saved": "Configuration saved successfully!",
+  "config_editor.error.save": "Error saving configuration: {error}",
+  "config_editor.error.language": "Language must be 'en' or 'es'",
+  "config_editor.error.permission": "Permission mode must be 'ask' or 'yolo'",
+  "config_editor.error.boolean": "Value must be 'true' or 'false'",
+  "config_editor.error.profile": "Profile '{profile}' does not exist"
 }

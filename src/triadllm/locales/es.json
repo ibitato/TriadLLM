@@ -62,5 +62,16 @@
   "status.off": "off",
   "status.on": "on",
   "status.ready": "listo",
-  "system.error": "Error de ejecución: {error}"
+  "system.error": "Error de ejecución: {error}",
+  "config_editor.title": "Editar Configuración",
+  "config_editor.instructions": "Modifica los ajustes abajo. Presiona Ctrl+S para guardar o Esc para cancelar.",
+  "config_editor.cancel": "Cancelar",
+  "config_editor.save": "Guardar",
+  "config_editor.cancelled": "Edición de configuración cancelada. No se hicieron cambios.",
+  "config_editor.saved": "¡Configuración guardada exitosamente!",
+  "config_editor.error.save": "Error guardando configuración: {error}",
+  "config_editor.error.language": "El idioma debe ser 'en' o 'es'",
+  "config_editor.error.permission": "El modo de permisos debe ser 'ask' o 'yolo'",
+  "config_editor.error.boolean": "El valor debe ser 'true' o 'false'",
+  "config_editor.error.profile": "El perfil '{profile}' no existe"
 }
