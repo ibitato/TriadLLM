@@ -364,7 +364,7 @@ class ConfigEditorScreen(ModalScreen[str | None]):
         text-style: bold;
     }
 
-    #config-input {
+    TextArea {
         width: 100%;
         min-height: 3;
         background: #111111;
