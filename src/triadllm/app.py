@@ -401,8 +401,9 @@ class ConfigEditorScreen(ModalScreen[str | None]):
                     # Language field
                     with Container(id="config-field-language"):
                         yield Static("Language:", id="config-label")
+                        language_val = self.current_values.get("language", "")
                         self.language_input = TextArea(
-                            str(self.current_values.get("language", "")),
+                            str(language_val) if language_val is not None else "",
                             id="config-input-language",
                             soft_wrap=True,
                             show_line_numbers=False,
@@ -414,8 +415,9 @@ class ConfigEditorScreen(ModalScreen[str | None]):
                     # Permission mode field
                     with Container(id="config-field-permission"):
                         yield Static("Permission Mode:", id="config-label")
+                        permission_val = self.current_values.get("permission_mode", "")
                         self.permission_input = TextArea(
-                            str(self.current_values.get("permission_mode", "")),
+                            str(permission_val) if permission_val is not None else "",
                             id="config-input-permission",
                             soft_wrap=True,
                             show_line_numbers=False,
@@ -427,8 +429,9 @@ class ConfigEditorScreen(ModalScreen[str | None]):
                     # Show reasoning field
                     with Container(id="config-field-reasoning"):
                         yield Static("Show Reasoning:", id="config-label")
+                        reasoning_val = self.current_values.get("show_reasoning", "")
                         self.reasoning_input = TextArea(
-                            str(self.current_values.get("show_reasoning", "")),
+                            str(reasoning_val) if reasoning_val is not None else "",
                             id="config-input-reasoning",
                             soft_wrap=True,
                             show_line_numbers=False,
@@ -440,8 +443,9 @@ class ConfigEditorScreen(ModalScreen[str | None]):
                     # Show tool results field
                     with Container(id="config-field-toolresults"):
                         yield Static("Show Tool Results:", id="config-label")
+                        toolresults_val = self.current_values.get("show_tool_results", "")
                         self.toolresults_input = TextArea(
-                            str(self.current_values.get("show_tool_results", "")),
+                            str(toolresults_val) if toolresults_val is not None else "",
                             id="config-input-toolresults",
                             soft_wrap=True,
                             show_line_numbers=False,
@@ -453,8 +457,9 @@ class ConfigEditorScreen(ModalScreen[str | None]):
                     # Default profile field
                     with Container(id="config-field-profile"):
                         yield Static("Default Profile:", id="config-label")
+                        profile_val = self.current_values.get("default_profile", "")
                         self.profile_input = TextArea(
-                            str(self.current_values.get("default_profile", "")),
+                            str(profile_val) if profile_val is not None else "",
                             id="config-input-profile",
                             soft_wrap=True,
                             show_line_numbers=False,
