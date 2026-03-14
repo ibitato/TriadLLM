@@ -809,7 +809,7 @@ class TriadApp(App[None]):
         command = parts[0].lower()
         args = parts[1:]
         
-        self.runtime.logger.debug("command_received", extra={"raw": raw, "command": command, "args": args})
+        self.runtime.logger.debug("command_received", extra={"raw": raw, "command": command, "arguments": args})
 
         if command == "/help":
             body = self.translator.t("slash.help")
