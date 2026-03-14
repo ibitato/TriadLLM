@@ -383,13 +383,10 @@ class ConfigEditorScreen(ModalScreen[str | None]):
     }
     
     /* Scrollbar styling */
-    VerticalScroll {
-        scrollbar-gutter: stable;
-    }
-    
     Scrollbar {
-        background: #1f6f46;
-        bar-color: #ff9f1c;
+        scrollbar-background: #1f6f46;
+        scrollbar-color: #ff9f1c;
+        scrollbar-size: 5 10;
     }
     """
 
