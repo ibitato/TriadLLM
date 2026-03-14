@@ -381,6 +381,21 @@ class ConfigEditorScreen(ModalScreen[str | None]):
     #config-actions Button {
         margin-left: 1;
     }
+    
+    /* Scrollbar styling */
+    VerticalScroll {
+        scrollbar-gutter: stable;
+    }
+    
+    Scrollbar {
+        background: #1f6f46;
+        bar-color: #ff9f1c;
+    }
+    
+    Scrollbar:horizontal {
+        background: #1f6f46;
+        bar-color: #ff9f1c;
+    }
     """
 
     def __init__(self, settings: dict, profiles: dict, translator: Translator) -> None:
@@ -476,34 +491,50 @@ class ConfigEditorScreen(ModalScreen[str | None]):
         self.call_after_refresh(self._focus_first_field)
 
     def _focus_first_field(self) -> None:
-        self.language_input.focus()
+        # Find the language input widget by ID
+        language_input = self.query_one("#config-input-language", TextArea)
+        if language_input:
+            language_input.focus()
 
     def _validate_all(self) -> bool:
         """Validate all fields and return True if all are valid."""
         self.validation_errors = {}
+
+        # Get widgets by ID
+        language_input = self.query_one("#config-input-language", TextArea)
+        permission_input = self.query_one("#config-input-permission", TextArea)
+        reasoning_input = self.query_one("#config-input-reasoning", TextArea)
+        toolresults_input = self.query_one("#config-input-toolresults", TextArea)
+        profile_input = self.query_one("#config-input-profile", TextArea)
         
+        language_error = self.query_one("#config-error-language", Static)
+        permission_error = self.query_one("#config-error-permission", Static)
+        reasoning_error = self.query_one("#config-error-reasoning", Static)
+        toolresults_error = self.query_one("#config-error-toolresults", Static)
+        profile_error = self.query_one("#config-error-profile", Static)
+
         # Validate language
-        language = self.language_input.text.strip()
+        language = language_input.text.strip()
         if language not in ["en", "es"]:
             self.validation_errors["language"] = self.translator.t("config_editor.error.language")
-            self.language_error.update(self.validation_errors["language"])
+            language_error.update(self.validation_errors["language"])
         else:
-            self.language_error.update("")
+            language_error.update("")
             self.current_values["language"] = language
-        
+
         # Validate permission mode
-        permission = self.permission_input.text.strip()
+        permission = permission_input.text.strip()
         if permission not in ["ask", "yolo"]:
             self.validation_errors["permission_mode"] = self.translator.t("config_editor.error.permission")
-            self.permission_error.update(self.validation_errors["permission_mode"])
+            permission_error.update(self.validation_errors["permission_mode"])
         else:
-            self.permission_error.update("")
+            permission_error.update("")
             self.current_values["permission_mode"] = permission
-        
+
         # Validate boolean fields
         for field_name, input_field, error_field in [
-            ("show_reasoning", self.reasoning_input, self.reasoning_error),
-            ("show_tool_results", self.toolresults_input, self.toolresults_error)
+            ("show_reasoning", reasoning_input, reasoning_error),
+            ("show_tool_results", toolresults_input, toolresults_error)
         ]:
             value = input_field.text.strip().lower()
             if value not in ["true", "false"]:
@@ -512,16 +543,16 @@ class ConfigEditorScreen(ModalScreen[str | None]):
             else:
                 error_field.update("")
                 self.current_values[field_name] = value == "true"
-        
+
         # Validate default profile
-        profile = self.profile_input.text.strip()
+        profile = profile_input.text.strip()
         if profile and profile not in self.profiles:
             self.validation_errors["default_profile"] = self.translator.t("config_editor.error.profile", profile=profile)
-            self.profile_error.update(self.validation_errors["default_profile"])
+            profile_error.update(self.validation_errors["default_profile"])
         else:
-            self.profile_error.update("")
+            profile_error.update("")
             self.current_values["default_profile"] = profile if profile else None
-        
+
         return len(self.validation_errors) == 0
 
     @on(Button.Pressed)
