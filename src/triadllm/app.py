@@ -397,6 +397,12 @@ class ConfigEditorScreen(ModalScreen[str | None]):
         self.translator = translator
         self.current_values = settings.copy()
         self.validation_errors = {}
+        
+        # Debug logging
+        import logging
+        self.logger = logging.getLogger(__name__)
+        self.logger.info("ConfigEditorScreen initialized with settings: %s", self.settings)
+        self.logger.info("ConfigEditorScreen current_values: %s", self.current_values)
 
     def compose(self) -> ComposeResult:
         with CenterMiddle():
@@ -409,12 +415,14 @@ class ConfigEditorScreen(ModalScreen[str | None]):
                     with Container(id="config-field-language"):
                         yield Static("Language:", id="config-label")
                         language_val = self.current_values.get("language", "")
+                        self.logger.info("Language field value: %s (type: %s)", language_val, type(language_val))
                         self.language_input = TextArea(
                             str(language_val) if language_val is not None else "",
                             id="config-input-language",
                             soft_wrap=True,
                             show_line_numbers=False,
                         )
+                        self.logger.info("Language TextArea text: %s", self.language_input.text)
                         yield self.language_input
                         self.language_error = Static("", id="config-error-language")
                         yield self.language_error
@@ -860,10 +868,12 @@ class TriadApp(App[None]):
                 # Open interactive configuration editor
                 self.runtime.logger.info("config_edit_command_received")
                 settings_dict = self.runtime.settings.model_dump()
+                self.runtime.logger.info("config_edit_settings_dict", extra={"settings_dict": settings_dict})
                 # Convert enum to string for editing
                 if "permission_mode" in settings_dict and hasattr(settings_dict["permission_mode"], "value"):
                     settings_dict["permission_mode"] = settings_dict["permission_mode"].value
                 profiles = self.runtime.profiles
+                self.runtime.logger.info("config_edit_profiles", extra={"profiles": list(profiles.keys())})
                 
                 async def handle_edit_result(result: str | None) -> None:
                     if result is None:
