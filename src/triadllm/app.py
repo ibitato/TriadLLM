@@ -843,70 +843,99 @@ class TriadApp(App[None]):
                 profiles_count=len(profiles_data),
                 sample_profiles=snapshot["sample_profiles"],
             )
-        elif command == "/config" and args and args[0] == "edit":
-            # Open interactive configuration editor
-            self.runtime.logger.info("config_edit_command_received")
-            settings_dict = self.runtime.settings.model_dump()
-            # Convert enum to string for editing
-            if "permission_mode" in settings_dict and hasattr(settings_dict["permission_mode"], "value"):
-                settings_dict["permission_mode"] = settings_dict["permission_mode"].value
-            profiles = self.runtime.profiles
-            
-            async def handle_edit_result(result: str | None) -> None:
-                if result is None:
-                    # User cancelled
-                    body = self.translator.t("config_editor.cancelled")
-                else:
-                    # User saved changes
-                    try:
-                        # Update runtime settings
-                        if "language" in result:
-                            self.runtime.set_language(result["language"])
-                        if "permission_mode" in result:
-                            self.runtime.set_permission_mode(result["permission_mode"])
-                        if "show_reasoning" in result:
-                            self.runtime.set_reasoning_visibility(result["show_reasoning"])
-                        if "show_tool_results" in result:
-                            self.runtime.set_tool_results_visibility(result["show_tool_results"])
-                        if "default_profile" in result and result["default_profile"]:
-                            self.runtime.set_default_profile(result["default_profile"])
-                        
-                        # Save settings to disk
-                        self.config_manager.save_settings(self.runtime.settings)
-                        
-                        # Show success message
-                        body = self.translator.t("config_editor.saved")
-                        
-                        # Refresh UI if language changed
-                        if "language" in result:
-                            self._refresh_chrome()
-                    except Exception as e:
-                        body = self.translator.t("config_editor.error.save", error=str(e))
+        elif command == "/config":
+            if args and args[0] == "edit":
+                # Open interactive configuration editor
+                self.runtime.logger.info("config_edit_command_received")
+                settings_dict = self.runtime.settings.model_dump()
+                # Convert enum to string for editing
+                if "permission_mode" in settings_dict and hasattr(settings_dict["permission_mode"], "value"):
+                    settings_dict["permission_mode"] = settings_dict["permission_mode"].value
+                profiles = self.runtime.profiles
                 
+                async def handle_edit_result(result: str | None) -> None:
+                    if result is None:
+                        # User cancelled
+                        body = self.translator.t("config_editor.cancelled")
+                    else:
+                        # User saved changes
+                        try:
+                            # Update runtime settings
+                            if "language" in result:
+                                self.runtime.set_language(result["language"])
+                            if "permission_mode" in result:
+                                self.runtime.set_permission_mode(result["permission_mode"])
+                            if "show_reasoning" in result:
+                                self.runtime.set_reasoning_visibility(result["show_reasoning"])
+                            if "show_tool_results" in result:
+                                self.runtime.set_tool_results_visibility(result["show_tool_results"])
+                            if "default_profile" in result and result["default_profile"]:
+                                self.runtime.set_default_profile(result["default_profile"])
+                            
+                            # Save settings to disk
+                            self.config_manager.save_settings(self.runtime.settings)
+                            
+                            # Show success message
+                            body = self.translator.t("config_editor.saved")
+                            
+                            # Refresh UI if language changed
+                            if "language" in result:
+                                self._refresh_chrome()
+                        except Exception as e:
+                            body = self.translator.t("config_editor.error.save", error=str(e))
+                    
+                    await self._add_block(
+                        self.translator.t("event.system"),
+                        body,
+                        "system"
+                    )
+                    self._refresh_status()
+                
+                # Push the editor screen
+                try:
+                    self.runtime.logger.info("config_edit_screen_pushed")
+                    self.push_screen(
+                        ConfigEditorScreen(settings_dict, profiles, self.translator),
+                        callback=handle_edit_result
+                    )
+                    self.runtime.logger.info("config_edit_screen_push_complete")
+                except Exception as e:
+                    self.runtime.logger.exception("config_edit_screen_creation_failed", extra={"error": str(e)})
+                    body = self.translator.t("config_editor.error.screen_creation", error=str(e))
+                    await self._add_block(
+                        self.translator.t("event.system"),
+                        body,
+                        "system"
+                    )
+                return
+            else:
+                # Regular /config command - show config summary
+                snapshot = self.config_manager.config_snapshot(self.runtime.settings, self.runtime.profiles)
+                paths_dict = snapshot["paths"]
+                settings = snapshot["settings"]
+                profiles_data = snapshot["profiles"]
+                body = self.translator.t(
+                    "slash.config",
+                    paths_config_dir=paths_dict["config_dir"],
+                    paths_settings_path=paths_dict["settings_path"],
+                    paths_logs_path=paths_dict["log_dir"],
+                    paths_sessions_path=paths_dict["sessions_dir"],
+                    paths_profiles_path=paths_dict["profiles_path"],
+                    settings_language=settings["language"],
+                    settings_permission_mode=settings["permission_mode"],
+                    settings_show_reasoning=settings["show_reasoning"],
+                    settings_show_tool_results=settings["show_tool_results"],
+                    settings_default_profile=settings.get("default_profile", "None"),
+                    profiles_count=len(profiles_data),
+                    sample_profiles=snapshot["sample_profiles"],
+                )
                 await self._add_block(
                     self.translator.t("event.system"),
                     body,
                     "system"
                 )
                 self._refresh_status()
-            
-            # Push the editor screen
-            try:
-                self.runtime.logger.info("config_edit_screen_pushed")
-                self.push_screen(
-                    ConfigEditorScreen(settings_dict, profiles, self.translator),
-                    callback=handle_edit_result
-                )
-                self.runtime.logger.info("config_edit_screen_push_complete")
-            except Exception as e:
-                self.runtime.logger.exception("config_edit_screen_creation_failed", extra={"error": str(e)})
-                body = self.translator.t("config_editor.error.screen_creation", error=str(e))
-                await self._add_block(
-                    self.translator.t("event.system"),
-                    body,
-                    "system"
-                )
-            return
+                return
         elif command == "/permissions":
             if not args or args[0] not in {"ask", "yolo"}:
                 body = self.translator.t("slash.permissions.invalid")
