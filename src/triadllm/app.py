@@ -844,6 +844,7 @@ class TriadApp(App[None]):
                 sample_profiles=snapshot["sample_profiles"],
             )
         elif command == "/config":
+            self.runtime.logger.debug("config_command_check", extra={"command_args": args, "has_args": bool(args), "first_arg": args[0] if args else None})
             if args and args[0] == "edit":
                 # Open interactive configuration editor
                 self.runtime.logger.info("config_edit_command_received")
