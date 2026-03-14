@@ -37,7 +37,7 @@
   "slash.cancel.idle": "No active turn to cancel.",
   "slash.clear": "Transcript cleared.",
   "slash.config": "Configuration snapshot:\n{snapshot}",
-  "slash.help": "Available commands:\n\n/help - Show this help message\n/status - Show current system status\n/config - Show configuration snapshot\n/permissions ask|yolo - Set permission mode (ask for approval or yolo)\n/lang es|en - Change language\n/models - List available profiles and active agents\n/model set <orchestrator|processor|validator> <profile> - Set profile for specific agent\n/tools - List available tools\n/reasoning on|off - Toggle reasoning visibility\n/toolresults on|off - Toggle tool results visibility\n/new - Start fresh conversation\n/clear - Clear transcript\n/cancel - Cancel current turn\n/quit - Exit the application",
+  "slash.help": "### Available Commands\n\n/help - **Show this help message**  \n/status - **Show current system status**  \n/config - **Show configuration snapshot**  \n/permissions ask|yolo - **Set permission mode (ask for approval or yolo)**  \n/lang es|en - **Change language**  \n/models - **List available profiles and active agents**  \n/model set <orchestrator|processor|validator> <profile> - **Set profile for specific agent**  \n/tools - **List available tools**  \n/reasoning on|off - **Toggle reasoning visibility**  \n/toolresults on|off - **Toggle tool results visibility**  \n/new - **Start fresh conversation**  \n/clear - **Clear transcript**  \n/cancel - **Cancel current turn**  \n/quit - **Exit the application**",
   "slash.lang.changed": "Language changed to {language}.",
   "slash.lang.invalid": "Usage: /lang es|en",
   "slash.model.changed": "Profile for {role} set to {profile}.",

@@ -9,7 +9,7 @@ from textual.containers import CenterMiddle, Container, Horizontal, VerticalScro
 from textual.message import Message
 from textual.screen import ModalScreen
 from textual.worker import Worker
-from textual.widgets import Button, Static, TextArea
+from textual.widgets import Button, Static, TextArea, Markdown
 
 from triadllm.config import ConfigManager
 from triadllm.domain import AgentRole, PermissionMode, SessionEvent, SessionEventKind, ToolRequest
@@ -317,6 +317,13 @@ class EditorScreen(ModalScreen[str | None]):
 
 
 class ChatBlock(Static):
+    def __init__(self, title: str, body: str, kind: str) -> None:
+        super().__init__(body, classes=f"chat-block {kind}")
+        self.kind = kind
+        self.border_title = title
+
+
+class MarkdownChatBlock(Markdown):
     def __init__(self, title: str, body: str, kind: str) -> None:
         super().__init__(body, classes=f"chat-block {kind}")
         self.kind = kind
@@ -693,7 +700,13 @@ class TriadApp(App[None]):
 
     async def _add_block(self, title: str, body: str, kind: str) -> None:
         transcript = self.query_one("#transcript", VerticalScroll)
-        block = ChatBlock(title, body, kind)
+        
+        # Use Markdown widget for help messages (contains markdown formatting)
+        if "**" in body or "#" in body:
+            block = MarkdownChatBlock(title, body, kind)
+        else:
+            block = ChatBlock(title, body, kind)
+        
         await transcript.mount(block)
         if kind == "reasoning" and not self.runtime.settings.show_reasoning:
             block.add_class("is-hidden")
