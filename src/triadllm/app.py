@@ -808,6 +808,8 @@ class TriadApp(App[None]):
         parts = shlex.split(raw)
         command = parts[0].lower()
         args = parts[1:]
+        
+        self.runtime.logger.debug("command_received", extra={"raw": raw, "command": command, "args": args})
 
         if command == "/help":
             body = self.translator.t("slash.help")
