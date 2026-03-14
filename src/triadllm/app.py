@@ -600,7 +600,23 @@ class TriadApp(App[None]):
             )
         elif command == "/config":
             snapshot = self.config_manager.config_snapshot(self.runtime.settings, self.runtime.profiles)
-            body = self.translator.t("slash.config", snapshot=snapshot)
+            paths = snapshot["paths"]
+            settings = snapshot["settings"]
+            profiles_data = snapshot["profiles"]
+            body = self.translator.t(
+                "slash.config",
+                paths_config_file=paths["config_file"],
+                paths_logs_path=paths["logs_path"],
+                paths_sessions_path=paths["sessions_path"],
+                paths_cache_path=paths["cache_path"],
+                settings_language=settings["language"],
+                settings_permission_mode=settings["permission_mode"],
+                settings_show_reasoning=settings["show_reasoning"],
+                settings_show_tool_results=settings["show_tool_results"],
+                settings_default_profile=settings.get("default_profile", "None"),
+                profiles_count=len(profiles_data),
+                sample_profiles=snapshot["sample_profiles"],
+            )
         elif command == "/permissions":
             if not args or args[0] not in {"ask", "yolo"}:
                 body = self.translator.t("slash.permissions.invalid")
