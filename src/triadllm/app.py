@@ -843,6 +843,7 @@ class TriadApp(App[None]):
             )
         elif command == "/config" and args and args[0] == "edit":
             # Open interactive configuration editor
+            self.runtime.logger.info("config_edit_command_received")
             settings_dict = self.runtime.settings.model_dump()
             # Convert enum to string for editing
             if "permission_mode" in settings_dict and hasattr(settings_dict["permission_mode"], "value"):
@@ -888,10 +889,21 @@ class TriadApp(App[None]):
                 self._refresh_status()
             
             # Push the editor screen
-            self.push_screen(
-                ConfigEditorScreen(settings_dict, profiles, self.translator),
-                callback=handle_edit_result
-            )
+            try:
+                self.runtime.logger.info("config_edit_screen_pushed")
+                self.push_screen(
+                    ConfigEditorScreen(settings_dict, profiles, self.translator),
+                    callback=handle_edit_result
+                )
+                self.runtime.logger.info("config_edit_screen_push_complete")
+            except Exception as e:
+                self.runtime.logger.exception("config_edit_screen_creation_failed", extra={"error": str(e)})
+                body = self.translator.t("config_editor.error.screen_creation", error=str(e))
+                await self._add_block(
+                    self.translator.t("event.system"),
+                    body,
+                    "system"
+                )
             return
         elif command == "/permissions":
             if not args or args[0] not in {"ask", "yolo"}:

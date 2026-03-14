@@ -73,5 +73,6 @@
   "config_editor.error.language": "Language must be 'en' or 'es'",
   "config_editor.error.permission": "Permission mode must be 'ask' or 'yolo'",
   "config_editor.error.boolean": "Value must be 'true' or 'false'",
-  "config_editor.error.profile": "Profile '{profile}' does not exist"
+  "config_editor.error.profile": "Profile '{profile}' does not exist",
+  "config_editor.error.screen_creation": "Error creating configuration editor: {error}"
 }
