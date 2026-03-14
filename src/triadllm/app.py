@@ -843,7 +843,10 @@ class TriadApp(App[None]):
             )
         elif command == "/config" and args and args[0] == "edit":
             # Open interactive configuration editor
-            settings = self.runtime.settings
+            settings_dict = self.runtime.settings.model_dump()
+            # Convert enum to string for editing
+            if "permission_mode" in settings_dict and hasattr(settings_dict["permission_mode"], "value"):
+                settings_dict["permission_mode"] = settings_dict["permission_mode"].value
             profiles = self.runtime.profiles
             
             async def handle_edit_result(result: str | None) -> None:
@@ -886,7 +889,7 @@ class TriadApp(App[None]):
             
             # Push the editor screen
             self.push_screen(
-                ConfigEditorScreen(settings, profiles, self.translator),
+                ConfigEditorScreen(settings_dict, profiles, self.translator),
                 callback=handle_edit_result
             )
             return
