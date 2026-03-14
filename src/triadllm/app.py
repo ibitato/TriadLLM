@@ -337,26 +337,32 @@ class ConfigEditorScreen(ModalScreen[str | None]):
     #config-editor-dialog {
         width: 80;
         height: auto;
-        max-height: 90%;
+        max-height: 85%;
         padding: 1 2;
         border: round #ff9f1c;
         background: #0b0f0c;
+        overflow: hidden;
     }
 
     #config-title {
         color: #ff9f1c;
         text-style: bold;
+        margin-bottom: 1;
     }
 
     #config-body {
         height: 1fr;
-        min-height: 20;
+        min-height: 15;
+        max-height: 60;
         margin-top: 1;
         overflow-y: auto;
+        border: round #1f6f46 20%;
+        padding: 0 1;
     }
 
     #config-field {
         margin-bottom: 1;
+        padding: 0 1;
     }
 
     #config-label {
@@ -376,17 +382,23 @@ class ConfigEditorScreen(ModalScreen[str | None]):
         height: auto;
         margin-top: 1;
         align: right middle;
+        padding-bottom: 1;
     }
 
     #config-actions Button {
         margin-left: 1;
+        min-width: 12;
     }
     
     /* Scrollbar styling */
     Scrollbar {
-        scrollbar-background: #1f6f46;
+        scrollbar-background: #1f6f46 50%;
         scrollbar-color: #ff9f1c;
-        scrollbar-size: 5 10;
+        scrollbar-size: 8 12;
+    }
+    
+    VerticalScroll {
+        scrollbar-gutter: stable;
     }
     """
 
