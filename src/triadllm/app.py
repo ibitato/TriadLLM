@@ -396,68 +396,68 @@ class ConfigEditorScreen(ModalScreen[str | None]):
                 
                 with Container(id="config-body"):
                     # Language field
-                    with Container(id="config-field"):
+                    with Container(id="config-field-language"):
                         yield Static("Language:", id="config-label")
                         self.language_input = TextArea(
                             str(self.current_values.get("language", "")),
-                            id="config-input",
+                            id="config-input-language",
                             soft_wrap=True,
                             show_line_numbers=False,
                         )
                         yield self.language_input
-                        self.language_error = Static("", id="config-error")
+                        self.language_error = Static("", id="config-error-language")
                         yield self.language_error
                     
                     # Permission mode field
-                    with Container(id="config-field"):
+                    with Container(id="config-field-permission"):
                         yield Static("Permission Mode:", id="config-label")
                         self.permission_input = TextArea(
                             str(self.current_values.get("permission_mode", "")),
-                            id="config-input",
+                            id="config-input-permission",
                             soft_wrap=True,
                             show_line_numbers=False,
                         )
                         yield self.permission_input
-                        self.permission_error = Static("", id="config-error")
+                        self.permission_error = Static("", id="config-error-permission")
                         yield self.permission_error
                     
                     # Show reasoning field
-                    with Container(id="config-field"):
+                    with Container(id="config-field-reasoning"):
                         yield Static("Show Reasoning:", id="config-label")
                         self.reasoning_input = TextArea(
                             str(self.current_values.get("show_reasoning", "")),
-                            id="config-input",
+                            id="config-input-reasoning",
                             soft_wrap=True,
                             show_line_numbers=False,
                         )
                         yield self.reasoning_input
-                        self.reasoning_error = Static("", id="config-error")
+                        self.reasoning_error = Static("", id="config-error-reasoning")
                         yield self.reasoning_error
                     
                     # Show tool results field
-                    with Container(id="config-field"):
+                    with Container(id="config-field-toolresults"):
                         yield Static("Show Tool Results:", id="config-label")
                         self.toolresults_input = TextArea(
                             str(self.current_values.get("show_tool_results", "")),
-                            id="config-input",
+                            id="config-input-toolresults",
                             soft_wrap=True,
                             show_line_numbers=False,
                         )
                         yield self.toolresults_input
-                        self.toolresults_error = Static("", id="config-error")
+                        self.toolresults_error = Static("", id="config-error-toolresults")
                         yield self.toolresults_error
                     
                     # Default profile field
-                    with Container(id="config-field"):
+                    with Container(id="config-field-profile"):
                         yield Static("Default Profile:", id="config-label")
                         self.profile_input = TextArea(
                             str(self.current_values.get("default_profile", "")),
-                            id="config-input",
+                            id="config-input-profile",
                             soft_wrap=True,
                             show_line_numbers=False,
                         )
                         yield self.profile_input
-                        self.profile_error = Static("", id="config-error")
+                        self.profile_error = Static("", id="config-error-profile")
                         yield self.profile_error
                 
                 with Horizontal(id="config-actions"):
@@ -809,7 +809,7 @@ class TriadApp(App[None]):
         command = parts[0].lower()
         args = parts[1:]
         
-        self.runtime.logger.debug("command_received", extra={"raw": raw, "command": command, "arguments": args})
+        self.runtime.logger.debug("command_received", extra={"raw": raw, "command": command, "cmd_args": args})
 
         if command == "/help":
             body = self.translator.t("slash.help")
@@ -824,7 +824,7 @@ class TriadApp(App[None]):
                 log_file=status.logs_path,
             )
         elif command == "/config":
-            self.runtime.logger.debug("config_command_check", extra={"command_args": args, "has_args": bool(args), "first_arg": args[0] if args else None})
+            self.runtime.logger.debug("config_command_check", extra={"cmd_args": args, "has_args": bool(args), "first_arg": args[0] if args else None})
             if args and args[0] == "edit":
                 # Open interactive configuration editor
                 self.runtime.logger.info("config_edit_command_received")
