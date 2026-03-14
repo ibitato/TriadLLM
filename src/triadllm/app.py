@@ -349,7 +349,8 @@ class ConfigEditorScreen(ModalScreen[str | None]):
     }
 
     #config-body {
-        height: auto;
+        height: 1fr;
+        min-height: 20;
         margin-top: 1;
         overflow-y: auto;
     }
@@ -360,10 +361,12 @@ class ConfigEditorScreen(ModalScreen[str | None]):
 
     #config-label {
         color: #b6ff7a;
+        text-style: bold;
     }
 
     #config-input {
         width: 100%;
+        min-height: 3;
         background: #111111;
         color: #f2ffd4;
         border: round #1f6f46;
@@ -394,7 +397,7 @@ class ConfigEditorScreen(ModalScreen[str | None]):
                 yield Static(self.translator.t("config_editor.title"), id="config-title")
                 yield Static(self.translator.t("config_editor.instructions"), id="config-instructions")
                 
-                with Container(id="config-body"):
+                with VerticalScroll(id="config-body"):
                     # Language field
                     with Container(id="config-field-language"):
                         yield Static("Language:", id="config-label")
