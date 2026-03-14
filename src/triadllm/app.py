@@ -605,10 +605,11 @@ class TriadApp(App[None]):
             profiles_data = snapshot["profiles"]
             body = self.translator.t(
                 "slash.config",
-                paths_config_file=paths["config_file"],
-                paths_logs_path=paths["logs_path"],
-                paths_sessions_path=paths["sessions_path"],
-                paths_cache_path=paths["cache_path"],
+                paths_config_dir=paths.config_dir,
+                paths_settings_path=paths.settings_path,
+                paths_logs_path=paths.log_dir,
+                paths_sessions_path=paths.sessions_dir,
+                paths_profiles_path=paths.profiles_path,
                 settings_language=settings["language"],
                 settings_permission_mode=settings["permission_mode"],
                 settings_show_reasoning=settings["show_reasoning"],
