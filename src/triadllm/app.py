@@ -391,11 +391,6 @@ class ConfigEditorScreen(ModalScreen[str | None]):
         background: #1f6f46;
         bar-color: #ff9f1c;
     }
-    
-    Scrollbar:horizontal {
-        background: #1f6f46;
-        bar-color: #ff9f1c;
-    }
     """
 
     def __init__(self, settings: dict, profiles: dict, translator: Translator) -> None:
