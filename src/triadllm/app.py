@@ -824,26 +824,6 @@ class TriadApp(App[None]):
                 log_file=status.logs_path,
             )
         elif command == "/config":
-            snapshot = self.config_manager.config_snapshot(self.runtime.settings, self.runtime.profiles)
-            paths_dict = snapshot["paths"]
-            settings = snapshot["settings"]
-            profiles_data = snapshot["profiles"]
-            body = self.translator.t(
-                "slash.config",
-                paths_config_dir=paths_dict["config_dir"],
-                paths_settings_path=paths_dict["settings_path"],
-                paths_logs_path=paths_dict["log_dir"],
-                paths_sessions_path=paths_dict["sessions_dir"],
-                paths_profiles_path=paths_dict["profiles_path"],
-                settings_language=settings["language"],
-                settings_permission_mode=settings["permission_mode"],
-                settings_show_reasoning=settings["show_reasoning"],
-                settings_show_tool_results=settings["show_tool_results"],
-                settings_default_profile=settings.get("default_profile", "None"),
-                profiles_count=len(profiles_data),
-                sample_profiles=snapshot["sample_profiles"],
-            )
-        elif command == "/config":
             self.runtime.logger.debug("config_command_check", extra={"command_args": args, "has_args": bool(args), "first_arg": args[0] if args else None})
             if args and args[0] == "edit":
                 # Open interactive configuration editor
