@@ -600,16 +600,16 @@ class TriadApp(App[None]):
             )
         elif command == "/config":
             snapshot = self.config_manager.config_snapshot(self.runtime.settings, self.runtime.profiles)
-            paths = snapshot["paths"]
+            paths_dict = snapshot["paths"]
             settings = snapshot["settings"]
             profiles_data = snapshot["profiles"]
             body = self.translator.t(
                 "slash.config",
-                paths_config_dir=paths.config_dir,
-                paths_settings_path=paths.settings_path,
-                paths_logs_path=paths.log_dir,
-                paths_sessions_path=paths.sessions_dir,
-                paths_profiles_path=paths.profiles_path,
+                paths_config_dir=paths_dict["config_dir"],
+                paths_settings_path=paths_dict["settings_path"],
+                paths_logs_path=paths_dict["log_dir"],
+                paths_sessions_path=paths_dict["sessions_dir"],
+                paths_profiles_path=paths_dict["profiles_path"],
                 settings_language=settings["language"],
                 settings_permission_mode=settings["permission_mode"],
                 settings_show_reasoning=settings["show_reasoning"],
