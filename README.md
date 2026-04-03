@@ -111,10 +111,16 @@ TriadLLM reads credentials from the shell environment. It does not auto-load `.e
 ### 5. Start the app
 
 ```bash
-uv run triad
+./run_triadllm.sh
 ```
 
-Alternative entrypoint:
+This script automatically checks prerequisites, sets up the environment if needed, and launches the application.
+
+Alternative entrypoints:
+
+```bash
+uv run triad
+```
 
 ```bash
 uv run triadllm

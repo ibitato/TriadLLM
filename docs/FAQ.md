@@ -7,7 +7,7 @@ Use a single OpenAI profile for all roles:
 1. copy `src/triadllm/examples/profiles.yaml` to your user config directory
 2. export `OPENAI_API_KEY`
 3. keep `default_profile: openai_default`
-4. launch `uv run triad`
+4. launch `./run_triadllm.sh` (or `uv run triad`)
 
 That is the lowest-friction setup for a fresh install.
 
