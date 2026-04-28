@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.2.0
+
+Minor release with usability improvements, a new startup script, and security dependency updates.
+
+Highlights:
+
+- added `run_triadllm.sh` startup script that checks prerequisites, sets up the environment, and launches the app
+- implemented `/config edit` command with a scrollable TUI settings editor
+- enhanced `/help` with detailed markdown-formatted command descriptions
+- enhanced `/config` with human-friendly formatted output
+- resolved three Dependabot security alerts:
+  - `pytest` ≥9.0.3 — vulnerable tmpdir handling (medium)
+  - `Pygments` ≥2.20.0 — ReDoS in GUID matching (low)
+  - `requests` ≥2.33.0 — insecure temp file reuse (medium)
+
 ## 0.1.1
 
 Incremental release focused on TUI stability, usability, and presentation polish.
