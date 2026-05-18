@@ -39,7 +39,7 @@ class FirecrawlMCPClient:
     """
 
     BASE_URL = "https://api.firecrawl.dev/v0"
-    DEFAULT_TIMEOUT = 60.0
+    DEFAULT_TIMEOUT = 120.0  # 2 minutes
 
     def __init__(self, api_key: str | None = None, timeout: float = DEFAULT_TIMEOUT) -> None:
         """Inicializar cliente Firecrawl MCP.

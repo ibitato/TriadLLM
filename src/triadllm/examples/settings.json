@@ -14,7 +14,7 @@
   "mcp_servers": [
     {
       "id": "firecrawl",
-      "timeout": 60.0,
+      "timeout": 120.0,
       "api_key_env": "FIRECRAWL_API_KEY"
     }
   ]

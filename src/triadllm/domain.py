@@ -74,7 +74,7 @@ class McpServerSettings(BaseModel):
 
     id: str
     command: str | None = None
-    timeout: float = 60.0
+    timeout: float = 120.0  # 2 minutes default
     api_key_env: str | None = None
 
 
