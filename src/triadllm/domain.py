@@ -110,7 +110,7 @@ class UserSettings(BaseModel):
 class ToolRequest(BaseModel):
     tool: str
     arguments: dict[str, Any] = Field(default_factory=dict)
-    reason: str
+    reason: str = ""
     risk: ToolRisk = ToolRisk.MEDIUM
 
 
