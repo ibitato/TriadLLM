@@ -78,6 +78,15 @@ class McpServerSettings(BaseModel):
     api_key_env: str | None = None
 
 
+class FirecrawlDefaults(BaseModel):
+    """Default configuration for Firecrawl tools."""
+
+    scrape_formats: list[str] = Field(default_factory=lambda: ["markdown"])
+    search_limit: int = 5
+    map_limit: int = 5
+    crawl_max_pages: int = 5
+
+
 class UserSettings(BaseModel):
     language: LanguageCode = "en"
     permission_mode: PermissionMode = PermissionMode.ASK
@@ -88,6 +97,7 @@ class UserSettings(BaseModel):
     log_level: str = "INFO"
     log_retention_days: int = 7
     mcp_servers: list[McpServerSettings] = Field(default_factory=list)
+    firecrawl_defaults: FirecrawlDefaults = Field(default_factory=FirecrawlDefaults)
 
 
 class ToolRequest(BaseModel):

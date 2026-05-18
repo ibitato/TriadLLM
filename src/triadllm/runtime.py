@@ -56,17 +56,20 @@ class TriadRuntime:
         else:
             self.firecrawl_client = self._initialize_firecrawl_client(settings)
         
-        # Crear ToolBroker con el cliente MCP
+        # Crear ToolBroker con el cliente MCP y configuración de defaults
         if tool_broker is None:
             self.tool_broker = ToolBroker(
                 workspace=Path.cwd(),
                 firecrawl_client=self.firecrawl_client,
+                firecrawl_defaults=settings.firecrawl_defaults,
             )
         else:
-            # Si se pasa tool_broker, inyectar el cliente si es posible
+            # Si se pasa tool_broker, inyectar el cliente y defaults si es posible
             self.tool_broker = tool_broker
             if hasattr(self.tool_broker, 'firecrawl_client'):
                 self.tool_broker.firecrawl_client = self.firecrawl_client
+            if hasattr(self.tool_broker, 'firecrawl_defaults'):
+                self.tool_broker.firecrawl_defaults = settings.firecrawl_defaults
         
         self.history: list[SessionEvent] = []
         self.pending: PendingClarification | None = None

@@ -61,23 +61,27 @@ Tool reference:
 - `firecrawl_scrape`
   Use to extract content from a specific URL. Requires FIRECRAWL_API_KEY environment variable.
   Arguments: `{"url": "https://example.com"}` or `{"url": "https://example.com", "formats": ["markdown"]}`
-  `url` is required. `formats` (array, default: ["markdown"]), `waitFor` (number), and `timeout` (number) are optional.
+  `url` is required. `formats` (array, default: ["markdown"] from config), `waitFor` (number), and `timeout` (number) are optional.
+  Defaults can be configured in settings.json under `firecrawl_defaults.scrape_formats`.
   Always prefer this over attempting to manually fetch web content with shell commands.
 
 - `firecrawl_search`
   Use to search the web for information. Requires FIRECRAWL_API_KEY environment variable.
   Arguments: `{"query": "latest Python features"}` or `{"query": "latest Python features", "limit": 5}`
-  `query` is required. `limit` (number, default: 5), `pageOptions` (object), and `timeout` (number) are optional.
+  `query` is required. `limit` (number, default: 5 from config), `pageOptions` (object), and `timeout` (number) are optional.
+  Defaults can be configured in settings.json under `firecrawl_defaults.search_limit`.
 
 - `firecrawl_map`
   Use to discover URLs on a website. Requires FIRECRAWL_API_KEY environment variable.
   Arguments: `{"url": "https://example.com"}` or `{"url": "https://example.com", "search": "docs", "limit": 5}`
-  `url` is required. `search` (string), `limit` (number, default: 5), and `timeout` (number) are optional.
+  `url` is required. `search` (string), `limit` (number, default: 5 from config), and `timeout` (number) are optional.
+  Defaults can be configured in settings.json under `firecrawl_defaults.map_limit`.
 
 - `firecrawl_crawl`
   Use to crawl an entire website. Requires FIRECRAWL_API_KEY environment variable.
   Arguments: `{"url": "https://example.com"}` or `{"url": "https://example.com", "maxPages": 5}`
-  `url` is required. `maxPages` (number, default: 5), `includeSubdomains` (boolean), `allowExternal` (boolean), and `timeout` (number) are optional.
+  `url` is required. `maxPages` (number, default: 5 from config), `includeSubdomains` (boolean), `allowExternal` (boolean), and `timeout` (number) are optional.
+  Defaults can be configured in settings.json under `firecrawl_defaults.crawl_max_pages`.
 """.strip()
 
 TOOL_USAGE_RULES = """

@@ -41,10 +41,16 @@ Example:
   "mcp_servers": [
     {
       "id": "firecrawl",
-      "timeout": 60.0,
+      "timeout": 120.0,
       "api_key_env": "FIRECRAWL_API_KEY"
     }
-  ]
+  ],
+  "firecrawl_defaults": {
+    "scrape_formats": ["markdown"],
+    "search_limit": 5,
+    "map_limit": 5,
+    "crawl_max_pages": 5
+  }
 }
 ```
 
@@ -59,6 +65,7 @@ Fields:
 - `log_level`: `DEBUG`, `INFO`, `WARNING`, or `ERROR`
 - `log_retention_days`: rotating log retention window
 - `mcp_servers`: array of MCP server configurations (currently only Firecrawl is supported)
+- `firecrawl_defaults`: default parameter values for Firecrawl tools
 
 ### MCP Servers Configuration
 
@@ -73,6 +80,21 @@ Each entry supports:
 When configured and the corresponding environment variable is set, the MCP client
 is automatically initialized at startup. For Firecrawl, set `FIRECRAWL_API_KEY`
 in your environment and include the server in `mcp_servers`.
+
+### Firecrawl Defaults Configuration
+
+The `firecrawl_defaults` field allows you to configure default parameter values for all Firecrawl tools.
+This centralizes configuration instead of requiring parameters on each tool call.
+
+Available fields:
+
+- `scrape_formats`: Default output formats for `firecrawl_scrape` (array of strings, e.g., `["markdown"]`, `["html"]`, `["markdown", "rawHtml"]`)
+- `search_limit`: Default number of results for `firecrawl_search` (integer)
+- `map_limit`: Default number of URLs for `firecrawl_map` (integer)
+- `crawl_max_pages`: Default maximum pages for `firecrawl_crawl` (integer)
+
+These defaults can always be overridden by explicitly passing the parameter in a tool request.
+Tool arguments take precedence over configured defaults.
 
 ## `profiles.yaml`
 

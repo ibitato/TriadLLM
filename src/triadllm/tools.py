@@ -7,7 +7,7 @@ import shutil
 from pathlib import Path
 from typing import TYPE_CHECKING, Awaitable, Callable
 
-from triadllm.domain import PermissionMode, ToolRequest, ToolResult, ToolRisk
+from triadllm.domain import FirecrawlDefaults, PermissionMode, ToolRequest, ToolResult, ToolRisk
 
 if TYPE_CHECKING:
     from triadllm.mcp import FirecrawlMCPClient
@@ -18,9 +18,15 @@ ALLOWLIST_ENV = {"HOME", "PATH", "PWD", "SHELL", "TERM", "USER", "USERNAME", "US
 
 
 class ToolBroker:
-    def __init__(self, workspace: Path | None = None, firecrawl_client: "FirecrawlMCPClient | None" = None) -> None:
+    def __init__(
+        self,
+        workspace: Path | None = None,
+        firecrawl_client: "FirecrawlMCPClient | None" = None,
+        firecrawl_defaults: FirecrawlDefaults | None = None,
+    ) -> None:
         self.workspace = workspace or Path.cwd()
         self.firecrawl_client = firecrawl_client
+        self.firecrawl_defaults = firecrawl_defaults or FirecrawlDefaults()
 
     def available_tools(self) -> list[str]:
         return [
@@ -211,12 +217,12 @@ class ToolBroker:
         if not url:
             return ToolResult(tool="firecrawl_scrape", success=False, error="url is required", exit_code=2)
 
-        # Default formats: markdown for readability
-        formats = args.get("formats", ["markdown"])
+        # Use configured defaults or fallback to hardcoded defaults
+        formats = args.get("formats", self.firecrawl_defaults.scrape_formats)
         if isinstance(formats, str):
             formats = [formats]
         elif not isinstance(formats, list):
-            formats = ["markdown"]
+            formats = self.firecrawl_defaults.scrape_formats
 
         wait_for = args.get("waitFor") or args.get("wait_for")
         if wait_for is not None:
@@ -265,8 +271,8 @@ class ToolBroker:
         if not query:
             return ToolResult(tool="firecrawl_search", success=False, error="query is required", exit_code=2)
 
-        # Default: 5 results (Firecrawl recommended for most use cases)
-        limit = args.get("limit", 5)
+        # Use configured defaults or fallback to 5
+        limit = args.get("limit", self.firecrawl_defaults.search_limit)
         if limit is not None:
             limit = int(limit)
 
@@ -323,8 +329,8 @@ class ToolBroker:
         if search is not None:
             search = str(search)
 
-        # Default: 5 results for site mapping
-        limit = args.get("limit", 5)
+        # Use configured defaults or fallback to 5
+        limit = args.get("limit", self.firecrawl_defaults.map_limit)
         if limit is not None:
             limit = int(limit)
 
@@ -370,8 +376,8 @@ class ToolBroker:
         if not url:
             return ToolResult(tool="firecrawl_crawl", success=False, error="url is required", exit_code=2)
 
-        # Default: 5 pages max for crawl (Firecrawl recommended for quick crawls)
-        max_pages = args.get("maxPages") or args.get("max_pages", 5)
+        # Use configured defaults or fallback to 5
+        max_pages = args.get("maxPages") or args.get("max_pages", self.firecrawl_defaults.crawl_max_pages)
         if max_pages is not None:
             max_pages = int(max_pages)
 

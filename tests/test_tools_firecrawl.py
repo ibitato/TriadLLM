@@ -7,7 +7,7 @@ import os
 
 import pytest
 
-from triadllm.domain import PermissionMode, ToolRequest, ToolRisk
+from triadllm.domain import FirecrawlDefaults, PermissionMode, ToolRequest, ToolRisk
 from triadllm.mcp import FirecrawlMCPClient
 from triadllm.tools import ToolBroker
 
@@ -411,3 +411,148 @@ class TestFirecrawlPermissionMode:
         )
         
         assert result.success is True
+
+
+class TestFirecrawlDefaults:
+    """Tests for Firecrawl defaults configuration."""
+
+    def test_tool_broker_receives_defaults(self):
+        """ToolBroker can receive Firecrawl defaults."""
+        defaults = FirecrawlDefaults(
+            scrape_formats=["html"],
+            search_limit=10,
+            map_limit=10,
+            crawl_max_pages=10,
+        )
+        broker = ToolBroker(firecrawl_defaults=defaults)
+        assert broker.firecrawl_defaults is defaults
+
+    def test_tool_broker_default_defaults(self):
+        """ToolBroker creates default FirecrawlDefaults if none provided."""
+        broker = ToolBroker()
+        assert broker.firecrawl_defaults is not None
+        assert isinstance(broker.firecrawl_defaults, FirecrawlDefaults)
+        assert broker.firecrawl_defaults.scrape_formats == ["markdown"]
+        assert broker.firecrawl_defaults.search_limit == 5
+        assert broker.firecrawl_defaults.map_limit == 5
+        assert broker.firecrawl_defaults.crawl_max_pages == 5
+
+    @pytest.mark.asyncio
+    async def test_scrape_uses_default_formats(self, mock_firecrawl_client):
+        """Scrape handler uses configured default formats."""
+        received_args = {}
+        async def mock_scrape(url, **kwargs):
+            received_args.update(kwargs)
+            return {"url": url}
+        
+        mock_firecrawl_client.scrape = mock_scrape
+        
+        defaults = FirecrawlDefaults(scrape_formats=["html", "rawHtml"])
+        broker = ToolBroker(firecrawl_client=mock_firecrawl_client, firecrawl_defaults=defaults)
+        request = ToolRequest(
+            tool="firecrawl_scrape",
+            arguments={"url": "https://example.com"},
+            reason="test",
+            risk=ToolRisk.LOW,
+        )
+        
+        await broker.execute(request, permission_mode=PermissionMode.YOLO)
+        
+        assert "formats" in received_args
+        assert received_args["formats"] == ["html", "rawHtml"]
+
+    @pytest.mark.asyncio
+    async def test_scrape_arg_overrides_default(self, mock_firecrawl_client):
+        """Scrape handler: explicit formats argument overrides defaults."""
+        received_args = {}
+        async def mock_scrape(url, **kwargs):
+            received_args.update(kwargs)
+            return {"url": url}
+        
+        mock_firecrawl_client.scrape = mock_scrape
+        
+        defaults = FirecrawlDefaults(scrape_formats=["html"])
+        broker = ToolBroker(firecrawl_client=mock_firecrawl_client, firecrawl_defaults=defaults)
+        request = ToolRequest(
+            tool="firecrawl_scrape",
+            arguments={"url": "https://example.com", "formats": ["markdown"]},
+            reason="test",
+            risk=ToolRisk.LOW,
+        )
+        
+        await broker.execute(request, permission_mode=PermissionMode.YOLO)
+        
+        assert "formats" in received_args
+        assert received_args["formats"] == ["markdown"]
+
+    @pytest.mark.asyncio
+    async def test_search_uses_default_limit(self, mock_firecrawl_client):
+        """Search handler uses configured default limit."""
+        received_args = {}
+        async def mock_search(query, **kwargs):
+            received_args.update(kwargs)
+            return {"query": query}
+        
+        mock_firecrawl_client.search = mock_search
+        
+        defaults = FirecrawlDefaults(search_limit=10)
+        broker = ToolBroker(firecrawl_client=mock_firecrawl_client, firecrawl_defaults=defaults)
+        request = ToolRequest(
+            tool="firecrawl_search",
+            arguments={"query": "test"},
+            reason="test",
+            risk=ToolRisk.LOW,
+        )
+        
+        await broker.execute(request, permission_mode=PermissionMode.YOLO)
+        
+        assert "limit" in received_args
+        assert received_args["limit"] == 10
+
+    @pytest.mark.asyncio
+    async def test_map_uses_default_limit(self, mock_firecrawl_client):
+        """Map handler uses configured default limit."""
+        received_args = {}
+        async def mock_map(url, **kwargs):
+            received_args.update(kwargs)
+            return {"url": url}
+        
+        mock_firecrawl_client.map = mock_map
+        
+        defaults = FirecrawlDefaults(map_limit=8)
+        broker = ToolBroker(firecrawl_client=mock_firecrawl_client, firecrawl_defaults=defaults)
+        request = ToolRequest(
+            tool="firecrawl_map",
+            arguments={"url": "https://example.com"},
+            reason="test",
+            risk=ToolRisk.LOW,
+        )
+        
+        await broker.execute(request, permission_mode=PermissionMode.YOLO)
+        
+        assert "limit" in received_args
+        assert received_args["limit"] == 8
+
+    @pytest.mark.asyncio
+    async def test_crawl_uses_default_max_pages(self, mock_firecrawl_client):
+        """Crawl handler uses configured default max_pages."""
+        received_args = {}
+        async def mock_crawl(url, **kwargs):
+            received_args.update(kwargs)
+            return {"url": url}
+        
+        mock_firecrawl_client.crawl = mock_crawl
+        
+        defaults = FirecrawlDefaults(crawl_max_pages=20)
+        broker = ToolBroker(firecrawl_client=mock_firecrawl_client, firecrawl_defaults=defaults)
+        request = ToolRequest(
+            tool="firecrawl_crawl",
+            arguments={"url": "https://example.com"},
+            reason="test",
+            risk=ToolRisk.LOW,
+        )
+        
+        await broker.execute(request, permission_mode=PermissionMode.YOLO)
+        
+        assert "max_pages" in received_args
+        assert received_args["max_pages"] == 20
