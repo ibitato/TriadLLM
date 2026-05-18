@@ -352,6 +352,19 @@ class ToolBroker:
         if limit is not None:
             limit = int(limit)
 
+        # Use configured defaults for map options
+        include_subdomains = args.get("includeSubdomains")
+        if include_subdomains is None:
+            include_subdomains = args.get("include_subdomains")
+        if include_subdomains is None:
+            include_subdomains = self.firecrawl_defaults.map_include_subdomains
+
+        ignore_query_params = args.get("ignoreQueryParameters")
+        if ignore_query_params is None:
+            ignore_query_params = args.get("ignore_query_parameters")
+        if ignore_query_params is None:
+            ignore_query_params = self.firecrawl_defaults.map_ignore_query_parameters
+
         timeout = args.get("timeout")
         if timeout is not None:
             timeout = float(timeout)
@@ -362,6 +375,10 @@ class ToolBroker:
                 map_kwargs["search"] = search
             if limit:
                 map_kwargs["limit"] = limit
+            if include_subdomains is not None:
+                map_kwargs["includeSubdomains"] = include_subdomains
+            if ignore_query_params is not None:
+                map_kwargs["ignoreQueryParameters"] = ignore_query_params
             if timeout:
                 map_kwargs["timeout"] = timeout
 
@@ -399,17 +416,18 @@ class ToolBroker:
         if max_pages is not None:
             max_pages = int(max_pages)
 
+        # Use configured defaults for crawl options
         include_subdomains = args.get("includeSubdomains") or args.get("include_subdomains")
-        if include_subdomains is not None:
-            include_subdomains = bool(include_subdomains)
+        if include_subdomains is None:
+            include_subdomains = self.firecrawl_defaults.crawl_include_subdomains
         else:
-            include_subdomains = False
+            include_subdomains = bool(include_subdomains)
 
         allow_external = args.get("allowExternal") or args.get("allow_external")
-        if allow_external is not None:
-            allow_external = bool(allow_external)
+        if allow_external is None:
+            allow_external = self.firecrawl_defaults.crawl_allow_external
         else:
-            allow_external = False
+            allow_external = bool(allow_external)
 
         timeout = args.get("timeout")
         if timeout is not None:

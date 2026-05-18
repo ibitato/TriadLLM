@@ -73,15 +73,15 @@ Tool reference:
 
 - `firecrawl_map`
   Use to discover URLs on a website. Requires FIRECRAWL_API_KEY environment variable.
-  Arguments: `{"url": "https://example.com"}` or `{"url": "https://example.com", "search": "docs", "limit": 5}`
-  `url` is required. `search` (string), `limit` (number, default: 5 from config), and `timeout` (number) are optional.
-  Defaults can be configured in settings.json under `firecrawl_defaults.map_limit`.
+  Arguments: `{"url": "https://example.com"}` or `{"url": "https://example.com", "search": "docs", "limit": 5, "includeSubdomains": false, "ignoreQueryParameters": true}`
+  `url` is required. `search` (string), `limit` (number, default: 5 from config), `includeSubdomains` (boolean, default: false from config), `ignoreQueryParameters` (boolean, default: true from config), and `timeout` (number) are optional.
+  Defaults can be configured in settings.json under `firecrawl_defaults.map_limit`, `firecrawl_defaults.map_include_subdomains`, and `firecrawl_defaults.map_ignore_query_parameters`.
 
 - `firecrawl_crawl`
   Use to crawl an entire website. Requires FIRECRAWL_API_KEY environment variable.
-  Arguments: `{"url": "https://example.com"}` or `{"url": "https://example.com", "maxPages": 5}`
-  `url` is required. `maxPages` (number, default: 5 from config), `includeSubdomains` (boolean), `allowExternal` (boolean), and `timeout` (number) are optional.
-  Defaults can be configured in settings.json under `firecrawl_defaults.crawl_max_pages`.
+  Arguments: `{"url": "https://example.com"}` or `{"url": "https://example.com", "maxPages": 5, "includeSubdomains": false, "allowExternal": false}`
+  `url` is required. `maxPages` (number, default: 5 from config), `includeSubdomains` (boolean, default: false from config), `allowExternal` (boolean, default: false from config), and `timeout` (number) are optional.
+  Defaults can be configured in settings.json under `firecrawl_defaults.crawl_max_pages`, `firecrawl_defaults.crawl_include_subdomains`, and `firecrawl_defaults.crawl_allow_external`.
 """.strip()
 
 TOOL_USAGE_RULES = """

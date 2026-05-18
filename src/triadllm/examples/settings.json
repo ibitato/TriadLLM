@@ -25,6 +25,10 @@
     "search_lang": "en",
     "search_country": null,
     "map_limit": 5,
-    "crawl_max_pages": 5
+    "map_include_subdomains": false,
+    "map_ignore_query_parameters": true,
+    "crawl_max_pages": 5,
+    "crawl_include_subdomains": false,
+    "crawl_allow_external": false
   }
 }

@@ -87,7 +87,11 @@ class FirecrawlDefaults(BaseModel):
     search_lang: str = "en"
     search_country: str | None = None
     map_limit: int = 5
+    map_include_subdomains: bool = False
+    map_ignore_query_parameters: bool = True
     crawl_max_pages: int = 5
+    crawl_include_subdomains: bool = False
+    crawl_allow_external: bool = False
 
 
 class UserSettings(BaseModel):
