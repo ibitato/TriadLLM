@@ -82,7 +82,10 @@ class FirecrawlDefaults(BaseModel):
     """Default configuration for Firecrawl tools."""
 
     scrape_formats: list[str] = Field(default_factory=lambda: ["markdown"])
+    scrape_only_main_content: bool = True
     search_limit: int = 5
+    search_lang: str = "en"
+    search_country: str | None = None
     map_limit: int = 5
     crawl_max_pages: int = 5
 

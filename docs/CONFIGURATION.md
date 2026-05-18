@@ -89,12 +89,22 @@ This centralizes configuration instead of requiring parameters on each tool call
 Available fields:
 
 - `scrape_formats`: Default output formats for `firecrawl_scrape` (array of strings, e.g., `["markdown"]`, `["html"]`, `["markdown", "rawHtml"]`)
-- `search_limit`: Default number of results for `firecrawl_search` (integer)
-- `map_limit`: Default number of URLs for `firecrawl_map` (integer)
-- `crawl_max_pages`: Default maximum pages for `firecrawl_crawl` (integer)
+- `scrape_only_main_content`: Default to only main content for `firecrawl_scrape` (boolean, default: true - reduces response size significantly)
+- `search_limit`: Default number of results for `firecrawl_search` (integer, default: 5)
+- `search_lang`: Default language for `firecrawl_search` (string, default: "en")
+- `search_country`: Default country for `firecrawl_search` (string or null, default: null)
+- `map_limit`: Default number of URLs for `firecrawl_map` (integer, default: 5)
+- `crawl_max_pages`: Default maximum pages for `firecrawl_crawl` (integer, default: 5)
 
 These defaults can always be overridden by explicitly passing the parameter in a tool request.
 Tool arguments take precedence over configured defaults.
+
+### Reducing Response Size
+
+To prevent context overflow with large web page content, consider:
+- Setting `scrape_only_main_content: true` (default) to exclude boilerplate
+- Using `search_limit: 3` instead of 5 for focused searches
+- Both settings significantly reduce the token count sent to models
 
 ## `profiles.yaml`
 

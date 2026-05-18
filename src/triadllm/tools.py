@@ -224,6 +224,10 @@ class ToolBroker:
         elif not isinstance(formats, list):
             formats = self.firecrawl_defaults.scrape_formats
 
+        only_main_content = args.get("onlyMainContent") or args.get("only_main_content")
+        if only_main_content is None:
+            only_main_content = self.firecrawl_defaults.scrape_only_main_content
+
         wait_for = args.get("waitFor") or args.get("wait_for")
         if wait_for is not None:
             wait_for = float(wait_for)
@@ -237,6 +241,8 @@ class ToolBroker:
             scrape_kwargs: dict[str, object] = {}
             if formats:
                 scrape_kwargs["formats"] = formats
+            if only_main_content is not None:
+                scrape_kwargs["onlyMainContent"] = only_main_content
             if wait_for:
                 scrape_kwargs["wait_for"] = wait_for
             if timeout:
@@ -276,6 +282,14 @@ class ToolBroker:
         if limit is not None:
             limit = int(limit)
 
+        lang = args.get("lang", self.firecrawl_defaults.search_lang)
+        if lang is not None:
+            lang = str(lang)
+
+        country = args.get("country", self.firecrawl_defaults.search_country)
+        if country is not None:
+            country = str(country)
+
         page_options = args.get("pageOptions") or args.get("page_options")
         if isinstance(page_options, str):
             try:
@@ -291,6 +305,10 @@ class ToolBroker:
             search_kwargs: dict[str, object] = {}
             if limit:
                 search_kwargs["limit"] = limit
+            if lang:
+                search_kwargs["lang"] = lang
+            if country:
+                search_kwargs["country"] = country
             if page_options:
                 search_kwargs["page_options"] = page_options
             if timeout:

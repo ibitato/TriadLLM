@@ -556,3 +556,99 @@ class TestFirecrawlDefaults:
         
         assert "max_pages" in received_args
         assert received_args["max_pages"] == 20
+
+    @pytest.mark.asyncio
+    async def test_scrape_uses_default_only_main_content(self, mock_firecrawl_client):
+        """Scrape handler uses configured default onlyMainContent."""
+        received_args = {}
+        async def mock_scrape(url, **kwargs):
+            received_args.update(kwargs)
+            return {"url": url}
+        
+        mock_firecrawl_client.scrape = mock_scrape
+        
+        defaults = FirecrawlDefaults(scrape_only_main_content=True)
+        broker = ToolBroker(firecrawl_client=mock_firecrawl_client, firecrawl_defaults=defaults)
+        request = ToolRequest(
+            tool="firecrawl_scrape",
+            arguments={"url": "https://example.com"},
+            reason="test",
+            risk=ToolRisk.LOW,
+        )
+        
+        await broker.execute(request, permission_mode=PermissionMode.YOLO)
+        
+        assert "onlyMainContent" in received_args
+        assert received_args["onlyMainContent"] is True
+
+    @pytest.mark.asyncio
+    async def test_search_uses_default_lang(self, mock_firecrawl_client):
+        """Search handler uses configured default lang."""
+        received_args = {}
+        async def mock_search(query, **kwargs):
+            received_args.update(kwargs)
+            return {"query": query}
+        
+        mock_firecrawl_client.search = mock_search
+        
+        defaults = FirecrawlDefaults(search_lang="es")
+        broker = ToolBroker(firecrawl_client=mock_firecrawl_client, firecrawl_defaults=defaults)
+        request = ToolRequest(
+            tool="firecrawl_search",
+            arguments={"query": "test"},
+            reason="test",
+            risk=ToolRisk.LOW,
+        )
+        
+        await broker.execute(request, permission_mode=PermissionMode.YOLO)
+        
+        assert "lang" in received_args
+        assert received_args["lang"] == "es"
+
+    @pytest.mark.asyncio
+    async def test_search_uses_default_country(self, mock_firecrawl_client):
+        """Search handler uses configured default country."""
+        received_args = {}
+        async def mock_search(query, **kwargs):
+            received_args.update(kwargs)
+            return {"query": query}
+        
+        mock_firecrawl_client.search = mock_search
+        
+        defaults = FirecrawlDefaults(search_country="us")
+        broker = ToolBroker(firecrawl_client=mock_firecrawl_client, firecrawl_defaults=defaults)
+        request = ToolRequest(
+            tool="firecrawl_search",
+            arguments={"query": "test"},
+            reason="test",
+            risk=ToolRisk.LOW,
+        )
+        
+        await broker.execute(request, permission_mode=PermissionMode.YOLO)
+        
+        assert "country" in received_args
+        assert received_args["country"] == "us"
+
+    @pytest.mark.asyncio
+    async def test_search_arg_overrides_lang_country(self, mock_firecrawl_client):
+        """Search handler: explicit lang/country override defaults."""
+        received_args = {}
+        async def mock_search(query, **kwargs):
+            received_args.update(kwargs)
+            return {"query": query}
+        
+        mock_firecrawl_client.search = mock_search
+        
+        defaults = FirecrawlDefaults(search_lang="en", search_country="us")
+        broker = ToolBroker(firecrawl_client=mock_firecrawl_client, firecrawl_defaults=defaults)
+        request = ToolRequest(
+            tool="firecrawl_search",
+            arguments={"query": "test", "lang": "es", "country": "es"},
+            reason="test",
+            risk=ToolRisk.LOW,
+        )
+        
+        await broker.execute(request, permission_mode=PermissionMode.YOLO)
+        
+        assert received_args["lang"] == "es"
+        assert received_args["country"] == "es"

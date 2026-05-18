@@ -20,7 +20,10 @@
   ],
   "firecrawl_defaults": {
     "scrape_formats": ["markdown"],
+    "scrape_only_main_content": true,
     "search_limit": 5,
+    "search_lang": "en",
+    "search_country": null,
     "map_limit": 5,
     "crawl_max_pages": 5
   }
