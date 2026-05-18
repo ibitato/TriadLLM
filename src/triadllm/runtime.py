@@ -28,7 +28,7 @@ from triadllm.providers import ModelGateway
 from triadllm.tools import ApprovalHandler, ToolBroker
 
 if TYPE_CHECKING:
-    from triadllm.mcp import FirecrawlMCPClient
+    from triadllm.firecrawl import FirecrawlClient
 
 
 class TriadRuntime:
@@ -41,7 +41,7 @@ class TriadRuntime:
         model_gateway: ModelGateway,
         tool_broker: ToolBroker | None = None,
         logger: logging.Logger | None = None,
-        firecrawl_client: "FirecrawlMCPClient | None" = None,
+        firecrawl_client: "FirecrawlClient | None" = None,
     ) -> None:
         self.config_manager = config_manager
         self.settings = settings
@@ -88,10 +88,10 @@ class TriadRuntime:
             },
         )
 
-    def _initialize_firecrawl_client(self, settings: UserSettings) -> "FirecrawlMCPClient | None":
-        """Initialize Firecrawl MCP client if configured and API key is available."""
+    def _initialize_firecrawl_client(self, settings: UserSettings) -> "FirecrawlClient | None":
+        """Initialize Firecrawl client if configured and API key is available."""
         try:
-            from triadllm.mcp import FirecrawlMCPClient, FirecrawlMCPError
+            from triadllm.firecrawl import FirecrawlClient, FirecrawlError
 
             # Check if firecrawl is in mcp_servers configuration
             firecrawl_config = next(
@@ -108,23 +108,23 @@ class TriadRuntime:
             
             if api_key:
                 timeout = firecrawl_config.timeout if firecrawl_config else 60.0
-                client = FirecrawlMCPClient(api_key=api_key, timeout=timeout)
+                client = FirecrawlClient(api_key=api_key, timeout=timeout)
                 self.logger.info(
-                    "firecrawl_mcp_initialized",
+                    "firecrawl_client_initialized",
                     extra={"timeout": timeout},
                 )
                 return client
             else:
                 self.logger.debug(
-                    "firecrawl_mcp_skipped",
+                    "firecrawl_client_skipped",
                     extra={"reason": "FIRECRAWL_API_KEY not found in environment"},
                 )
                 return None
         except ImportError:
-            # mcp module not available (shouldn't happen but be safe)
-            self.logger.debug("firecrawl_mcp_module_not_available")
+            # firecrawl module not available (shouldn't happen but be safe)
+            self.logger.debug("firecrawl_module_not_available")
             return None
-        except FirecrawlMCPError:
+        except FirecrawlError:
             # Client initialization failed (no API key)
             return None
 

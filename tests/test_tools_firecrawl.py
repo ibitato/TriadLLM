@@ -8,7 +8,7 @@ import os
 import pytest
 
 from triadllm.domain import FirecrawlDefaults, PermissionMode, ToolRequest, ToolRisk
-from triadllm.mcp import FirecrawlMCPClient
+from triadllm.firecrawl import FirecrawlClient
 from triadllm.tools import ToolBroker
 
 
@@ -25,7 +25,7 @@ def clear_env_var():
 @pytest.fixture
 def mock_firecrawl_client():
     """Create a mock Firecrawl client for testing."""
-    return FirecrawlMCPClient(api_key="test-key")
+    return FirecrawlClient(api_key="test-key")
 
 
 class TestToolBrokerFirecrawl:
@@ -323,9 +323,9 @@ class TestFirecrawlCrawlHandler:
             tool="firecrawl_crawl",
             arguments={
                 "url": "https://example.com",
-                "maxPages": 10,
-                "includeSubdomains": True,
-                "allowExternal": False,
+                "limit": 10,
+                "allowSubdomains": True,
+                "allowExternalLinks": False,
             },
             reason="test",
             risk=ToolRisk.LOW,
@@ -333,9 +333,9 @@ class TestFirecrawlCrawlHandler:
         
         await broker.execute(request, permission_mode=PermissionMode.YOLO)
         
-        assert received_args.get("max_pages") == 10
-        assert received_args.get("include_subdomains") is True
-        assert received_args.get("allow_external") is False
+        assert received_args.get("limit") == 10
+        assert received_args.get("allow_subdomains") is True
+        assert received_args.get("allow_external_links") is False
 
 
 class TestFirecrawlPermissionMode:
@@ -422,7 +422,7 @@ class TestFirecrawlDefaults:
             scrape_formats=["html"],
             search_limit=10,
             map_limit=10,
-            crawl_max_pages=10,
+            crawl_limit=10,
         )
         broker = ToolBroker(firecrawl_defaults=defaults)
         assert broker.firecrawl_defaults is defaults
@@ -432,11 +432,11 @@ class TestFirecrawlDefaults:
         broker = ToolBroker()
         assert broker.firecrawl_defaults is not None
         assert isinstance(broker.firecrawl_defaults, FirecrawlDefaults)
-        assert broker.firecrawl_defaults.scrape_formats == ["text"]
+        assert broker.firecrawl_defaults.scrape_formats == ["markdown"]
         assert broker.firecrawl_defaults.search_limit == 3
         assert broker.firecrawl_defaults.search_only_main_content is True
         assert broker.firecrawl_defaults.map_limit == 3
-        assert broker.firecrawl_defaults.crawl_max_pages == 3
+        assert broker.firecrawl_defaults.crawl_limit == 3
 
     @pytest.mark.asyncio
     async def test_scrape_uses_default_formats(self, mock_firecrawl_client):
@@ -535,8 +535,8 @@ class TestFirecrawlDefaults:
         assert received_args["limit"] == 8
 
     @pytest.mark.asyncio
-    async def test_crawl_uses_default_max_pages(self, mock_firecrawl_client):
-        """Crawl handler uses configured default max_pages."""
+    async def test_crawl_uses_default_limit(self, mock_firecrawl_client):
+        """Crawl handler uses configured default limit."""
         received_args = {}
         async def mock_crawl(url, **kwargs):
             received_args.update(kwargs)
@@ -544,7 +544,7 @@ class TestFirecrawlDefaults:
         
         mock_firecrawl_client.crawl = mock_crawl
         
-        defaults = FirecrawlDefaults(crawl_max_pages=20)
+        defaults = FirecrawlDefaults(crawl_limit=20)
         broker = ToolBroker(firecrawl_client=mock_firecrawl_client, firecrawl_defaults=defaults)
         request = ToolRequest(
             tool="firecrawl_crawl",
@@ -555,8 +555,8 @@ class TestFirecrawlDefaults:
         
         await broker.execute(request, permission_mode=PermissionMode.YOLO)
         
-        assert "max_pages" in received_args
-        assert received_args["max_pages"] == 20
+        assert "limit" in received_args
+        assert received_args["limit"] == 20
 
     @pytest.mark.asyncio
     async def test_scrape_uses_default_only_main_content(self, mock_firecrawl_client):
@@ -579,8 +579,8 @@ class TestFirecrawlDefaults:
         
         await broker.execute(request, permission_mode=PermissionMode.YOLO)
         
-        assert "onlyMainContent" in received_args
-        assert received_args["onlyMainContent"] is True
+        assert "only_main_content" in received_args
+        assert received_args["only_main_content"] is True
 
     @pytest.mark.asyncio
     async def test_search_uses_default_lang(self, mock_firecrawl_client):
@@ -683,8 +683,8 @@ class TestFirecrawlNewDefaults:
         assert received_args["includeSubdomains"] is True
 
     @pytest.mark.asyncio
-    async def test_map_uses_default_ignore_query_parameters(self, mock_firecrawl_client):
-        """Map handler uses configured default ignoreQueryParameters."""
+    async def test_map_uses_default_include_subdomains(self, mock_firecrawl_client):
+        """Map handler uses configured default includeSubdomains."""
         received_args = {}
         async def mock_map(url, **kwargs):
             received_args.update(kwargs)
@@ -692,7 +692,7 @@ class TestFirecrawlNewDefaults:
         
         mock_firecrawl_client.map = mock_map
         
-        defaults = FirecrawlDefaults(map_ignore_query_parameters=False)
+        defaults = FirecrawlDefaults(map_include_subdomains=True)
         broker = ToolBroker(firecrawl_client=mock_firecrawl_client, firecrawl_defaults=defaults)
         request = ToolRequest(
             tool="firecrawl_map",
@@ -703,8 +703,8 @@ class TestFirecrawlNewDefaults:
         
         await broker.execute(request, permission_mode=PermissionMode.YOLO)
         
-        assert "ignoreQueryParameters" in received_args
-        assert received_args["ignoreQueryParameters"] is False
+        assert "include_subdomains" in received_args
+        assert received_args["include_subdomains"] is True
 
     @pytest.mark.asyncio
     async def test_map_arg_overrides_defaults(self, mock_firecrawl_client):
@@ -718,7 +718,6 @@ class TestFirecrawlNewDefaults:
         
         defaults = FirecrawlDefaults(
             map_include_subdomains=False,
-            map_ignore_query_parameters=True,
         )
         broker = ToolBroker(firecrawl_client=mock_firecrawl_client, firecrawl_defaults=defaults)
         request = ToolRequest(
@@ -726,7 +725,6 @@ class TestFirecrawlNewDefaults:
             arguments={
                 "url": "https://example.com",
                 "includeSubdomains": True,
-                "ignoreQueryParameters": False,
             },
             reason="test",
             risk=ToolRisk.LOW,
@@ -734,8 +732,7 @@ class TestFirecrawlNewDefaults:
         
         await broker.execute(request, permission_mode=PermissionMode.YOLO)
         
-        assert received_args["includeSubdomains"] is True
-        assert received_args["ignoreQueryParameters"] is False
+        assert received_args["include_subdomains"] is True
 
     @pytest.mark.asyncio
     async def test_crawl_uses_default_include_subdomains(self, mock_firecrawl_client):
@@ -747,7 +744,7 @@ class TestFirecrawlNewDefaults:
         
         mock_firecrawl_client.crawl = mock_crawl
         
-        defaults = FirecrawlDefaults(crawl_include_subdomains=True)
+        defaults = FirecrawlDefaults(crawl_allow_subdomains=True)
         broker = ToolBroker(firecrawl_client=mock_firecrawl_client, firecrawl_defaults=defaults)
         request = ToolRequest(
             tool="firecrawl_crawl",
@@ -758,12 +755,12 @@ class TestFirecrawlNewDefaults:
         
         await broker.execute(request, permission_mode=PermissionMode.YOLO)
         
-        assert "include_subdomains" in received_args
-        assert received_args["include_subdomains"] is True
+        assert "allow_subdomains" in received_args
+        assert received_args["allow_subdomains"] is True
 
     @pytest.mark.asyncio
-    async def test_crawl_uses_default_allow_external(self, mock_firecrawl_client):
-        """Crawl handler uses configured default allowExternal."""
+    async def test_crawl_uses_default_allow_external_links(self, mock_firecrawl_client):
+        """Crawl handler uses configured default allowExternalLinks."""
         received_args = {}
         async def mock_crawl(url, **kwargs):
             received_args.update(kwargs)
@@ -771,7 +768,7 @@ class TestFirecrawlNewDefaults:
         
         mock_firecrawl_client.crawl = mock_crawl
         
-        defaults = FirecrawlDefaults(crawl_allow_external=True)
+        defaults = FirecrawlDefaults(crawl_allow_external_links=True)
         broker = ToolBroker(firecrawl_client=mock_firecrawl_client, firecrawl_defaults=defaults)
         request = ToolRequest(
             tool="firecrawl_crawl",
@@ -782,8 +779,8 @@ class TestFirecrawlNewDefaults:
         
         await broker.execute(request, permission_mode=PermissionMode.YOLO)
         
-        assert "allow_external" in received_args
-        assert received_args["allow_external"] is True
+        assert "allow_external_links" in received_args
+        assert received_args["allow_external_links"] is True
 
     @pytest.mark.asyncio
     async def test_crawl_arg_overrides_defaults(self, mock_firecrawl_client):
@@ -796,16 +793,16 @@ class TestFirecrawlNewDefaults:
         mock_firecrawl_client.crawl = mock_crawl
         
         defaults = FirecrawlDefaults(
-            crawl_include_subdomains=False,
-            crawl_allow_external=False,
+            crawl_allow_subdomains=False,
+            crawl_allow_external_links=False,
         )
         broker = ToolBroker(firecrawl_client=mock_firecrawl_client, firecrawl_defaults=defaults)
         request = ToolRequest(
             tool="firecrawl_crawl",
             arguments={
                 "url": "https://example.com",
-                "includeSubdomains": True,
-                "allowExternal": True,
+                "allowSubdomains": True,
+                "allowExternalLinks": True,
             },
             reason="test",
             risk=ToolRisk.LOW,
@@ -813,24 +810,35 @@ class TestFirecrawlNewDefaults:
         
         await broker.execute(request, permission_mode=PermissionMode.YOLO)
         
-        assert received_args["include_subdomains"] is True
-        assert received_args["allow_external"] is True
+        assert received_args["allow_subdomains"] is True
+        assert received_args["allow_external_links"] is True
 
     def test_firecrawl_defaults_all_fields(self):
         """FirecrawlDefaults has all expected fields with correct defaults."""
         defaults = FirecrawlDefaults()
-        assert defaults.scrape_formats == ["text"]
+        assert defaults.scrape_formats == ["markdown"]
         assert defaults.scrape_only_main_content is True
+        assert defaults.scrape_wait_for is None
+        assert defaults.scrape_include_tags is None
+        assert defaults.scrape_exclude_tags is None
+        assert defaults.scrape_remove_base64_images is False
         assert defaults.search_limit == 3
+        assert defaults.search_sources == ["web"]
+        assert defaults.search_categories is None
         assert defaults.search_lang == "en"
         assert defaults.search_country is None
+        assert defaults.search_location is None
+        assert defaults.search_tbs is None
+        assert defaults.search_include_domains is None
+        assert defaults.search_exclude_domains is None
+        assert defaults.search_ignore_invalid_urls is True
+        assert defaults.search_fetch_content is True
         assert defaults.search_only_main_content is True
         assert defaults.map_limit == 3
         assert defaults.map_include_subdomains is False
-        assert defaults.map_ignore_query_parameters is True
-        assert defaults.crawl_max_pages == 3
-        assert defaults.crawl_include_subdomains is False
-        assert defaults.crawl_allow_external is False
+        assert defaults.crawl_limit == 3
+        assert defaults.crawl_allow_subdomains is False
+        assert defaults.crawl_allow_external_links is False
 
     @pytest.mark.asyncio
     async def test_search_uses_default_only_main_content(self, mock_firecrawl_client):

@@ -19,17 +19,28 @@
     }
   ],
   "firecrawl_defaults": {
-    "scrape_formats": ["text"],
+    "scrape_formats": ["markdown"],
     "scrape_only_main_content": true,
+    "scrape_wait_for": null,
+    "scrape_include_tags": null,
+    "scrape_exclude_tags": null,
+    "scrape_remove_base64_images": false,
     "search_limit": 3,
+    "search_sources": ["web"],
+    "search_categories": null,
     "search_lang": "en",
     "search_country": null,
+    "search_location": null,
+    "search_tbs": null,
+    "search_include_domains": null,
+    "search_exclude_domains": null,
+    "search_ignore_invalid_urls": true,
+    "search_fetch_content": true,
     "search_only_main_content": true,
     "map_limit": 3,
     "map_include_subdomains": false,
-    "map_ignore_query_parameters": true,
-    "crawl_max_pages": 3,
-    "crawl_include_subdomains": false,
-    "crawl_allow_external": false
+    "crawl_limit": 3,
+    "crawl_allow_subdomains": false,
+    "crawl_allow_external_links": false
   }
 }

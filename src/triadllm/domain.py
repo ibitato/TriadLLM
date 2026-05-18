@@ -79,20 +79,41 @@ class McpServerSettings(BaseModel):
 
 
 class FirecrawlDefaults(BaseModel):
-    """Default configuration for Firecrawl tools."""
+    """Default configuration for Firecrawl tools (v2 API).
+    
+    All parameters use v2 API naming conventions.
+    """
 
-    scrape_formats: list[str] = Field(default_factory=lambda: ["text"])
+    # Scrape defaults
+    scrape_formats: list[str] = Field(default_factory=lambda: ["markdown"])
     scrape_only_main_content: bool = True
+    scrape_wait_for: float | None = None
+    scrape_include_tags: list[str] | None = None
+    scrape_exclude_tags: list[str] | None = None
+    scrape_remove_base64_images: bool = False
+
+    # Search defaults
     search_limit: int = 3
+    search_sources: list[str] | None = ["web"]
+    search_categories: list[str] | None = None
     search_lang: str = "en"
     search_country: str | None = None
+    search_location: str | None = None
+    search_tbs: str | None = None
+    search_include_domains: list[str] | None = None
+    search_exclude_domains: list[str] | None = None
+    search_ignore_invalid_urls: bool = True
+    search_fetch_content: bool = True
     search_only_main_content: bool = True
+
+    # Map defaults
     map_limit: int = 3
     map_include_subdomains: bool = False
-    map_ignore_query_parameters: bool = True
-    crawl_max_pages: int = 3
-    crawl_include_subdomains: bool = False
-    crawl_allow_external: bool = False
+
+    # Crawl defaults
+    crawl_limit: int = 3
+    crawl_allow_subdomains: bool = False
+    crawl_allow_external_links: bool = False
 
 
 class UserSettings(BaseModel):
