@@ -26,6 +26,10 @@ class ToolBroker:
             "search_files",
             "get_env",
             "pwd",
+            "firecrawl_scrape",
+            "firecrawl_search",
+            "firecrawl_map",
+            "firecrawl_crawl",
         ]
 
     async def execute(
@@ -64,6 +68,10 @@ class ToolBroker:
             "get_env": ToolRisk.MEDIUM,
             "shell_exec": ToolRisk.HIGH,
             "write_file": ToolRisk.HIGH,
+            "firecrawl_scrape": ToolRisk.LOW,
+            "firecrawl_search": ToolRisk.LOW,
+            "firecrawl_map": ToolRisk.LOW,
+            "firecrawl_crawl": ToolRisk.LOW,
         }.get(request.tool, request.risk)
         return request.model_copy(update={"risk": risk})
 
