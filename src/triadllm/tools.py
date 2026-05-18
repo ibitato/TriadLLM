@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 
 ApprovalHandler = Callable[[ToolRequest], Awaitable[bool]]
 
-ALLOWLIST_ENV = {"HOME", "PATH", "PWD", "SHELL", "TERM", "USER", "USERNAME", "USERPROFILE"}
+ALLOWLIST_ENV = {"HOME", "PATH", "PWD", "SHELL", "TERM", "USER", "USERNAME", "USERPROFILE", "FIRECRAWL_API_KEY"}
 
 
 class ToolBroker:
@@ -163,7 +163,11 @@ class ToolBroker:
                 error=f"Environment variable '{key}' is not allowed.",
                 exit_code=2,
             )
-        return ToolResult(tool="get_env", success=True, output=os.getenv(key, ""))
+        value = os.getenv(key, "")
+        # For API key variables, only return whether they exist (True/False), not the actual value
+        if "API_KEY" in key or "SECRET" in key or "TOKEN" in key:
+            return ToolResult(tool="get_env", success=True, output=str(value != "").lower())
+        return ToolResult(tool="get_env", success=True, output=value)
 
     async def _tool_shell_exec(self, args: dict[str, object]) -> ToolResult:
         command = str(args.get("command", "")).strip()
