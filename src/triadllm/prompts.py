@@ -67,20 +67,20 @@ Tool reference:
 
 - `firecrawl_search`
   Use to search the web for information. Requires FIRECRAWL_API_KEY environment variable.
-  Arguments: `{"query": "latest Python features"}` or `{"query": "latest Python features", "limit": 5, "lang": "en", "country": "us"}`
-  `query` is required. `limit` (number, default: 5 from config), `lang` (string, default: "en" from config), `country` (string, default: null from config), `pageOptions` (object), and `timeout` (number) are optional.
+  Arguments: `{"query": "latest Python features"}` or `{"query": "latest Python features", "limit": 3, "lang": "en", "country": "us"}`
+  `query` is required. `limit` (number, default: 3 from config), `lang` (string, default: "en" from config), `country` (string, default: null from config), `pageOptions` (object), and `timeout` (number) are optional.
   Defaults can be configured in settings.json under `firecrawl_defaults.search_limit`, `firecrawl_defaults.search_lang`, and `firecrawl_defaults.search_country`.
 
 - `firecrawl_map`
   Use to discover URLs on a website. Requires FIRECRAWL_API_KEY environment variable.
-  Arguments: `{"url": "https://example.com"}` or `{"url": "https://example.com", "search": "docs", "limit": 5, "includeSubdomains": false, "ignoreQueryParameters": true}`
-  `url` is required. `search` (string), `limit` (number, default: 5 from config), `includeSubdomains` (boolean, default: false from config), `ignoreQueryParameters` (boolean, default: true from config), and `timeout` (number) are optional.
+  Arguments: `{"url": "https://example.com"}` or `{"url": "https://example.com", "search": "docs", "limit": 3, "includeSubdomains": false, "ignoreQueryParameters": true}`
+  `url` is required. `search` (string), `limit` (number, default: 3 from config), `includeSubdomains` (boolean, default: false from config), `ignoreQueryParameters` (boolean, default: true from config), and `timeout` (number) are optional.
   Defaults can be configured in settings.json under `firecrawl_defaults.map_limit`, `firecrawl_defaults.map_include_subdomains`, and `firecrawl_defaults.map_ignore_query_parameters`.
 
 - `firecrawl_crawl`
   Use to crawl an entire website. Requires FIRECRAWL_API_KEY environment variable.
-  Arguments: `{"url": "https://example.com"}` or `{"url": "https://example.com", "maxPages": 5, "includeSubdomains": false, "allowExternal": false}`
-  `url` is required. `maxPages` (number, default: 5 from config), `includeSubdomains` (boolean, default: false from config), `allowExternal` (boolean, default: false from config), and `timeout` (number) are optional.
+  Arguments: `{"url": "https://example.com"}` or `{"url": "https://example.com", "maxPages": 3, "includeSubdomains": false, "allowExternal": false}`
+  `url` is required. `maxPages` (number, default: 3 from config), `includeSubdomains` (boolean, default: false from config), `allowExternal` (boolean, default: false from config), and `timeout` (number) are optional.
   Defaults can be configured in settings.json under `firecrawl_defaults.crawl_max_pages`, `firecrawl_defaults.crawl_include_subdomains`, and `firecrawl_defaults.crawl_allow_external`.
 """.strip()
 

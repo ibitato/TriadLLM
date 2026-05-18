@@ -433,9 +433,9 @@ class TestFirecrawlDefaults:
         assert broker.firecrawl_defaults is not None
         assert isinstance(broker.firecrawl_defaults, FirecrawlDefaults)
         assert broker.firecrawl_defaults.scrape_formats == ["markdown"]
-        assert broker.firecrawl_defaults.search_limit == 5
-        assert broker.firecrawl_defaults.map_limit == 5
-        assert broker.firecrawl_defaults.crawl_max_pages == 5
+        assert broker.firecrawl_defaults.search_limit == 3
+        assert broker.firecrawl_defaults.map_limit == 3
+        assert broker.firecrawl_defaults.crawl_max_pages == 3
 
     @pytest.mark.asyncio
     async def test_scrape_uses_default_formats(self, mock_firecrawl_client):
@@ -820,12 +820,12 @@ class TestFirecrawlNewDefaults:
         defaults = FirecrawlDefaults()
         assert defaults.scrape_formats == ["markdown"]
         assert defaults.scrape_only_main_content is True
-        assert defaults.search_limit == 5
+        assert defaults.search_limit == 3
         assert defaults.search_lang == "en"
         assert defaults.search_country is None
-        assert defaults.map_limit == 5
+        assert defaults.map_limit == 3
         assert defaults.map_include_subdomains is False
         assert defaults.map_ignore_query_parameters is True
-        assert defaults.crawl_max_pages == 5
+        assert defaults.crawl_max_pages == 3
         assert defaults.crawl_include_subdomains is False
         assert defaults.crawl_allow_external is False

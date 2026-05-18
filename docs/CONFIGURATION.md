@@ -90,13 +90,13 @@ Available fields:
 
 - `scrape_formats`: Default output formats for `firecrawl_scrape` (array of strings, e.g., `["markdown"]`, `["html"]`, `["markdown", "rawHtml"]`)
 - `scrape_only_main_content`: Default to only main content for `firecrawl_scrape` (boolean, default: true - reduces response size significantly)
-- `search_limit`: Default number of results for `firecrawl_search` (integer, default: 5)
+- `search_limit`: Default number of results for `firecrawl_search` (integer, default: 3)
 - `search_lang`: Default language for `firecrawl_search` (string, default: "en")
 - `search_country`: Default country for `firecrawl_search` (string or null, default: null)
-- `map_limit`: Default number of URLs for `firecrawl_map` (integer, default: 5)
+- `map_limit`: Default number of URLs for `firecrawl_map` (integer, default: 3)
 - `map_include_subdomains`: Default to include subdomains when mapping (boolean, default: false - stays within base domain)
 - `map_ignore_query_parameters`: Default to ignore query parameters when mapping (boolean, default: true - reduces duplicate URLs from tracking parameters)
-- `crawl_max_pages`: Default maximum pages for `firecrawl_crawl` (integer, default: 5)
+- `crawl_max_pages`: Default maximum pages for `firecrawl_crawl` (integer, default: 3)
 - `crawl_include_subdomains`: Default to include subdomains when crawling (boolean, default: false - safer, contained crawling)
 - `crawl_allow_external`: Default to allow external links when crawling (boolean, default: false - prevents crawling off-site)
 
