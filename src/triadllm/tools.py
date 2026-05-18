@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+import html
 import json
 import os
+import re
 import shutil
 from pathlib import Path
 from typing import TYPE_CHECKING, Awaitable, Callable
@@ -15,6 +17,123 @@ if TYPE_CHECKING:
 ApprovalHandler = Callable[[ToolRequest], Awaitable[bool]]
 
 ALLOWLIST_ENV = {"HOME", "PATH", "PWD", "SHELL", "TERM", "USER", "USERNAME", "USERPROFILE", "FIRECRAWL_API_KEY"}
+
+# Maximum tokens for Firecrawl results to prevent model timeouts
+MAX_FIRECRAWL_OUTPUT_TOKENS = 8000
+
+
+def _convert_markdown_to_text(content: str) -> str:
+    """Convert markdown content to plain text, removing links, images, and formatting.
+    
+    This significantly reduces the token count of Firecrawl responses.
+    """
+    if not content or not isinstance(content, str):
+        return content or ""
+    
+    # Remove HTML comments
+    content = re.sub(r'<!--.*?-->', '', content, flags=re.DOTALL)
+    
+    # Remove markdown images: ![alt](url) or ![alt](url "title")
+    content = re.sub(r'!\[[^\]]*\]\([^)]*\)', '', content)
+    
+    # Remove markdown links: [text](url) or [text](url "title")
+    # Keep the text, remove the link syntax
+    content = re.sub(r'\[([^\]]*)\]\([^)]*\)', r'\1', content)
+    
+    # Remove HTML tags
+    content = re.sub(r'<[^>]+>', '', content)
+    
+    # Remove markdown headers (keep the text)
+    content = re.sub(r'^(#+)\s*', '', content, flags=re.MULTILINE)
+    
+    # Remove markdown bold/italic: **text**, *text*, `__text__`, `_text_`
+    content = re.sub(r'(\*\*|\*|__|_)(.*?)\1', r'\2', content)
+    
+    # Remove markdown code blocks (keep the code)
+    content = re.sub(r'`([^`]*)`', r'\1', content)
+    
+    # Remove markdown blockquotes: > text
+    content = re.sub(r'^>\s*', '', content, flags=re.MULTILINE)
+    
+    # Remove markdown horizontal rules: ---, ***, ___
+    content = re.sub(r'^[\-*_]{3,}\s*$', '', content, flags=re.MULTILINE)
+    
+    # Remove markdown list markers: - , * , + , or numbers.
+    content = re.sub(r'^[\s]*[\-*+]\s+', '', content, flags=re.MULTILINE)
+    content = re.sub(r'^[\s]*\d+\.\s+', '', content, flags=re.MULTILINE)
+    
+    # Collapse multiple newlines
+    content = re.sub(r'\n{3,}', '\n\n', content)
+    
+    # Strip leading/trailing whitespace
+    content = content.strip()
+    
+    return content
+
+
+def _truncate_text_by_tokens(text: str, max_tokens: int = MAX_FIRECRAWL_OUTPUT_TOKENS) -> str:
+    """Truncate text to approximately max_tokens tokens.
+    
+    Uses a simple estimate: 4 characters ≈ 1 token (rough estimate for English).
+    """
+    if not text or not isinstance(text, str):
+        return text or ""
+    
+    # Rough estimate: 4 chars per token
+    max_chars = max_tokens * 4
+    
+    if len(text) <= max_chars:
+        return text
+    
+    # Truncate and add indicator
+    truncated = text[:max_chars]
+    # Find last sentence boundary
+    last_period = truncated.rfind('.')
+    last_newline = truncated.rfind('\n')
+    last_boundary = max(last_period, last_newline)
+    
+    if last_boundary > max_chars - 100:  # Don't cut too far back
+        truncated = truncated[:last_boundary]
+    
+    return truncated + "\n\n[... Output truncated for size. Use more specific queries for full results.]"
+
+
+def _sanitize_firecrawl_result(result: dict[str, object]) -> dict[str, object]:
+    """Process Firecrawl result to reduce size and convert to plain text.
+    
+    Applies markdown→text conversion and truncation to all content fields.
+    """
+    if not isinstance(result, dict):
+        return result
+    
+    sanitized = {}
+    for key, value in result.items():
+        if key == "data" and isinstance(value, list):
+            # Process list of results
+            sanitized[key] = []
+            for item in value:
+                if isinstance(item, dict):
+                    processed_item = {}
+                    for item_key, item_value in item.items():
+                        if item_key in ("content", "text", "description") and isinstance(item_value, str):
+                            # Convert markdown to text and truncate
+                            text_content = _convert_markdown_to_text(item_value)
+                            text_content = _truncate_text_by_tokens(text_content)
+                            processed_item[item_key] = text_content
+                        else:
+                            processed_item[item_key] = item_value
+                    sanitized[key].append(processed_item)
+                else:
+                    sanitized[key].append(item)
+        elif key in ("content", "text", "description", "metadata") and isinstance(value, str):
+            # Convert markdown to text and truncate
+            text_content = _convert_markdown_to_text(value)
+            text_content = _truncate_text_by_tokens(text_content)
+            sanitized[key] = text_content
+        else:
+            sanitized[key] = value
+    
+    return sanitized
 
 
 class ToolBroker:
@@ -261,10 +380,14 @@ class ToolBroker:
                 scrape_kwargs["timeout"] = timeout
 
             result = await self.firecrawl_client.scrape(**scrape_kwargs)
+            
+            # Sanitize result: convert markdown to text and truncate to prevent model timeouts
+            sanitized_result = _sanitize_firecrawl_result(result)
+            
             return ToolResult(
                 tool="firecrawl_scrape",
                 success=True,
-                output=json.dumps(result, ensure_ascii=False),
+                output=json.dumps(sanitized_result, ensure_ascii=False),
                 metadata={"url": url},
             )
         except Exception as e:
@@ -374,10 +497,14 @@ class ToolBroker:
                 search_kwargs["timeout"] = timeout
 
             result = await self.firecrawl_client.search(**search_kwargs)
+            
+            # Sanitize result: convert markdown to text and truncate to prevent model timeouts
+            sanitized_result = _sanitize_firecrawl_result(result)
+            
             return ToolResult(
                 tool="firecrawl_search",
                 success=True,
-                output=json.dumps(result, ensure_ascii=False),
+                output=json.dumps(sanitized_result, ensure_ascii=False),
                 metadata={"query": query},
             )
         except Exception as e:
@@ -434,10 +561,14 @@ class ToolBroker:
                 map_kwargs["timeout"] = timeout
 
             result = await self.firecrawl_client.map(**map_kwargs)
+            
+            # Sanitize result: convert markdown to text and truncate to prevent model timeouts
+            sanitized_result = _sanitize_firecrawl_result(result)
+            
             return ToolResult(
                 tool="firecrawl_map",
                 success=True,
-                output=json.dumps(result, ensure_ascii=False),
+                output=json.dumps(sanitized_result, ensure_ascii=False),
                 metadata={"url": url},
             )
         except Exception as e:
@@ -494,10 +625,14 @@ class ToolBroker:
                 crawl_kwargs["timeout"] = timeout
 
             result = await self.firecrawl_client.crawl(**crawl_kwargs)
+            
+            # Sanitize result: convert markdown to text and truncate to prevent model timeouts
+            sanitized_result = _sanitize_firecrawl_result(result)
+            
             return ToolResult(
                 tool="firecrawl_crawl",
                 success=True,
-                output=json.dumps(result, ensure_ascii=False),
+                output=json.dumps(sanitized_result, ensure_ascii=False),
                 metadata={"url": url},
             )
         except Exception as e:
