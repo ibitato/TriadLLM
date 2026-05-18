@@ -93,6 +93,7 @@ Available fields:
 - `search_limit`: Default number of results for `firecrawl_search` (integer, default: 3)
 - `search_lang`: Default language for `firecrawl_search` (string, default: "en")
 - `search_country`: Default country for `firecrawl_search` (string or null, default: null)
+- `search_only_main_content`: Default to only main content for `firecrawl_search` (boolean, default: true - reduces response size significantly)
 - `map_limit`: Default number of URLs for `firecrawl_map` (integer, default: 3)
 - `map_include_subdomains`: Default to include subdomains when mapping (boolean, default: false - stays within base domain)
 - `map_ignore_query_parameters`: Default to ignore query parameters when mapping (boolean, default: true - reduces duplicate URLs from tracking parameters)

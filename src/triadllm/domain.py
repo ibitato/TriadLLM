@@ -86,6 +86,7 @@ class FirecrawlDefaults(BaseModel):
     search_limit: int = 3
     search_lang: str = "en"
     search_country: str | None = None
+    search_only_main_content: bool = True
     map_limit: int = 3
     map_include_subdomains: bool = False
     map_ignore_query_parameters: bool = True

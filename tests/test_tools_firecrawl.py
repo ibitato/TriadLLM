@@ -434,6 +434,7 @@ class TestFirecrawlDefaults:
         assert isinstance(broker.firecrawl_defaults, FirecrawlDefaults)
         assert broker.firecrawl_defaults.scrape_formats == ["markdown"]
         assert broker.firecrawl_defaults.search_limit == 3
+        assert broker.firecrawl_defaults.search_only_main_content is True
         assert broker.firecrawl_defaults.map_limit == 3
         assert broker.firecrawl_defaults.crawl_max_pages == 3
 
@@ -823,9 +824,34 @@ class TestFirecrawlNewDefaults:
         assert defaults.search_limit == 3
         assert defaults.search_lang == "en"
         assert defaults.search_country is None
+        assert defaults.search_only_main_content is True
         assert defaults.map_limit == 3
         assert defaults.map_include_subdomains is False
         assert defaults.map_ignore_query_parameters is True
         assert defaults.crawl_max_pages == 3
         assert defaults.crawl_include_subdomains is False
         assert defaults.crawl_allow_external is False
+
+    @pytest.mark.asyncio
+    async def test_search_uses_default_only_main_content(self, mock_firecrawl_client):
+        """Search handler uses configured default onlyMainContent in scrapeOptions."""
+        received_args = {}
+        async def mock_search(query, **kwargs):
+            received_args.update(kwargs)
+            return {"query": query}
+        
+        mock_firecrawl_client.search = mock_search
+        
+        defaults = FirecrawlDefaults(search_only_main_content=True)
+        broker = ToolBroker(firecrawl_client=mock_firecrawl_client, firecrawl_defaults=defaults)
+        request = ToolRequest(
+            tool="firecrawl_search",
+            arguments={"query": "test"},
+            reason="test",
+            risk=ToolRisk.LOW,
+        )
+        
+        await broker.execute(request, permission_mode=PermissionMode.YOLO)
+        
+        assert "scrapeOptions" in received_args
+        assert received_args["scrapeOptions"]["onlyMainContent"] is True

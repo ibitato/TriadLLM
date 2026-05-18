@@ -68,8 +68,8 @@ Tool reference:
 - `firecrawl_search`
   Use to search the web for information. Requires FIRECRAWL_API_KEY environment variable.
   Arguments: `{"query": "latest Python features"}` or `{"query": "latest Python features", "limit": 3, "lang": "en", "country": "us"}`
-  `query` is required. `limit` (number, default: 3 from config), `lang` (string, default: "en" from config), `country` (string, default: null from config), `pageOptions` (object), and `timeout` (number) are optional.
-  Defaults can be configured in settings.json under `firecrawl_defaults.search_limit`, `firecrawl_defaults.search_lang`, and `firecrawl_defaults.search_country`.
+  `query` is required. `limit` (number, default: 3 from config), `lang` (string, default: "en" from config), `country` (string, default: null from config), `scrapeOptions` (object with `onlyMainContent`, etc.), `pageOptions` (object), and `timeout` (number) are optional.
+  Defaults can be configured in settings.json under `firecrawl_defaults.search_limit`, `firecrawl_defaults.search_lang`, `firecrawl_defaults.search_country`, and `firecrawl_defaults.search_only_main_content`.
 
 - `firecrawl_map`
   Use to discover URLs on a website. Requires FIRECRAWL_API_KEY environment variable.

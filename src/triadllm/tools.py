@@ -277,7 +277,7 @@ class ToolBroker:
         if not query:
             return ToolResult(tool="firecrawl_search", success=False, error="query is required", exit_code=2)
 
-        # Use configured defaults or fallback to 5
+        # Use configured defaults or fallback to 3
         limit = args.get("limit", self.firecrawl_defaults.search_limit)
         if limit is not None:
             limit = int(limit)
@@ -289,6 +289,21 @@ class ToolBroker:
         country = args.get("country", self.firecrawl_defaults.search_country)
         if country is not None:
             country = str(country)
+
+        # Build scrapeOptions for search
+        scrape_options = args.get("scrapeOptions") or args.get("scrape_options")
+        if isinstance(scrape_options, str):
+            try:
+                scrape_options = json.loads(scrape_options)
+            except json.JSONDecodeError:
+                scrape_options = None
+
+        if scrape_options is None:
+            scrape_options = {}
+
+        # Apply configured defaults for scrapeOptions
+        if "onlyMainContent" not in scrape_options:
+            scrape_options["onlyMainContent"] = self.firecrawl_defaults.search_only_main_content
 
         page_options = args.get("pageOptions") or args.get("page_options")
         if isinstance(page_options, str):
@@ -309,6 +324,8 @@ class ToolBroker:
                 search_kwargs["lang"] = lang
             if country:
                 search_kwargs["country"] = country
+            if scrape_options:
+                search_kwargs["scrapeOptions"] = scrape_options
             if page_options:
                 search_kwargs["page_options"] = page_options
             if timeout:

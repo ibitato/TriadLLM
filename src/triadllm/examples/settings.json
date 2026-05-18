@@ -24,6 +24,7 @@
     "search_limit": 3,
     "search_lang": "en",
     "search_country": null,
+    "search_only_main_content": true,
     "map_limit": 3,
     "map_include_subdomains": false,
     "map_ignore_query_parameters": true,
