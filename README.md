@@ -176,6 +176,8 @@ Repository examples:
 
 ## Tools and Permissions
 
+### Local Tools
+
 Available local tools:
 
 - `shell_exec`
@@ -185,6 +187,28 @@ Available local tools:
 - `search_files`
 - `get_env`
 - `pwd`
+
+### Firecrawl Tools (Built-in MCP)
+
+TriadLLM includes built-in support for Firecrawl web scraping and search tools via its API.
+No external `firecrawl-mcp` binary is required — the integration is fully self-contained.
+
+Available Firecrawl tools:
+
+- `firecrawl_scrape` — Extract content from a single URL
+- `firecrawl_search` — Search the web
+- `firecrawl_map` — Map a website's structure
+- `firecrawl_crawl` — Crawl an entire website
+
+**Setup:**
+
+1. Get your API key from [Firecrawl](https://firecrawl.dev)
+2. Set it in your environment:
+   ```bash
+   export FIRECRAWL_API_KEY="your-api-key"
+   ```
+
+The tools will automatically be available once the API key is set.
 
 Execution modes:
 

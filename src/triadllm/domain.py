@@ -69,6 +69,15 @@ class ProviderProfile(BaseModel):
     default_headers: dict[str, str] = Field(default_factory=dict)
 
 
+class McpServerSettings(BaseModel):
+    """Configuration for an MCP (Model Context Protocol) server."""
+
+    id: str
+    command: str | None = None
+    timeout: float = 60.0
+    api_key_env: str | None = None
+
+
 class UserSettings(BaseModel):
     language: LanguageCode = "en"
     permission_mode: PermissionMode = PermissionMode.ASK
@@ -78,6 +87,7 @@ class UserSettings(BaseModel):
     agent_profiles: dict[AgentRole, str] = Field(default_factory=dict)
     log_level: str = "INFO"
     log_retention_days: int = 7
+    mcp_servers: list[McpServerSettings] = Field(default_factory=list)
 
 
 class ToolRequest(BaseModel):

@@ -16,6 +16,10 @@ AVAILABLE_TOOLS = (
     "search_files",
     "get_env",
     "pwd",
+    "firecrawl_scrape",
+    "firecrawl_search",
+    "firecrawl_map",
+    "firecrawl_crawl",
 )
 
 TOOL_GUIDANCE = """
@@ -53,6 +57,27 @@ Tool reference:
   Use only when the task explicitly requires creating or modifying a file.
   Arguments: `{"path": "notes.txt", "content": "example"}`
   `path` and `content` are required.
+
+- `firecrawl_scrape`
+  Use to extract content from a specific URL. Requires FIRECRAWL_API_KEY environment variable.
+  Arguments: `{"url": "https://example.com"}` or `{"url": "https://example.com", "formats": ["markdown"]}`
+  `url` is required. `formats` (array), `waitFor` (number), and `timeout` (number) are optional.
+  Always prefer this over attempting to manually fetch web content with shell commands.
+
+- `firecrawl_search`
+  Use to search the web for information. Requires FIRECRAWL_API_KEY environment variable.
+  Arguments: `{"query": "latest Python features", "limit": 5}`
+  `query` is required. `limit` (number), `pageOptions` (object), and `timeout` (number) are optional.
+
+- `firecrawl_map`
+  Use to discover URLs on a website. Requires FIRECRAWL_API_KEY environment variable.
+  Arguments: `{"url": "https://example.com", "search": "docs"}`
+  `url` is required. `search` (string), `limit` (number), and `timeout` (number) are optional.
+
+- `firecrawl_crawl`
+  Use to crawl an entire website. Requires FIRECRAWL_API_KEY environment variable.
+  Arguments: `{"url": "https://example.com", "maxPages": 10}`
+  `url` is required. `maxPages` (number), `includeSubdomains` (boolean), `allowExternal` (boolean), and `timeout` (number) are optional.
 """.strip()
 
 TOOL_USAGE_RULES = """
@@ -65,6 +90,8 @@ Tool usage rules:
 - If a previous tool result already answers the question, stop using tools and return `final`.
 - If the missing information is not discoverable with the available tools, use `ask_user`.
 - Never invent tool names or argument shapes.
+- For web content: prefer `firecrawl_scrape` for single pages, `firecrawl_search` for finding information across the web.
+- Firecrawl tools require the FIRECRAWL_API_KEY environment variable to be set. If not available, do not request them.
 """.strip()
 
 

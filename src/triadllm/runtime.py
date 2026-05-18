@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import json
 import logging
+import os
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from triadllm.config import ConfigManager
 from triadllm.domain import (
@@ -25,6 +27,9 @@ from triadllm.prompts import build_agent_prompt
 from triadllm.providers import ModelGateway
 from triadllm.tools import ApprovalHandler, ToolBroker
 
+if TYPE_CHECKING:
+    from triadllm.mcp import FirecrawlMCPClient
+
 
 class TriadRuntime:
     def __init__(
@@ -34,16 +39,35 @@ class TriadRuntime:
         profiles: dict[str, Any],
         translator: Translator,
         model_gateway: ModelGateway,
-        tool_broker: ToolBroker,
-        logger: logging.Logger,
+        tool_broker: ToolBroker | None = None,
+        logger: logging.Logger | None = None,
+        firecrawl_client: "FirecrawlMCPClient | None" = None,
     ) -> None:
         self.config_manager = config_manager
         self.settings = settings
         self.profiles = profiles
         self.translator = translator
         self.model_gateway = model_gateway
-        self.tool_broker = tool_broker
-        self.logger = logger
+        self.logger = logger or logging.getLogger(__name__)
+        
+        # Inicializar cliente Firecrawl MCP si no se pasa
+        if firecrawl_client:
+            self.firecrawl_client = firecrawl_client
+        else:
+            self.firecrawl_client = self._initialize_firecrawl_client(settings)
+        
+        # Crear ToolBroker con el cliente MCP
+        if tool_broker is None:
+            self.tool_broker = ToolBroker(
+                workspace=Path.cwd(),
+                firecrawl_client=self.firecrawl_client,
+            )
+        else:
+            # Si se pasa tool_broker, inyectar el cliente si es posible
+            self.tool_broker = tool_broker
+            if hasattr(self.tool_broker, 'firecrawl_client'):
+                self.tool_broker.firecrawl_client = self.firecrawl_client
+        
         self.history: list[SessionEvent] = []
         self.pending: PendingClarification | None = None
         self.approval_handler: ApprovalHandler | None = None
@@ -57,8 +81,49 @@ class TriadRuntime:
                 "default_profile": self.settings.default_profile,
                 "agent_profiles": {role.value: profile for role, profile in self.settings.agent_profiles.items()},
                 "session_file": str(self.session_file),
+                "firecrawl_enabled": self.firecrawl_client is not None,
             },
         )
+
+    def _initialize_firecrawl_client(self, settings: UserSettings) -> "FirecrawlMCPClient | None":
+        """Initialize Firecrawl MCP client if configured and API key is available."""
+        try:
+            from triadllm.mcp import FirecrawlMCPClient, FirecrawlMCPError
+
+            # Check if firecrawl is in mcp_servers configuration
+            firecrawl_config = next(
+                (s for s in settings.mcp_servers if s.id == "firecrawl"),
+                None,
+            )
+            
+            # Get API key from environment
+            api_key = os.getenv("FIRECRAWL_API_KEY")
+            
+            # Also check if config specifies a different env var
+            if firecrawl_config and firecrawl_config.api_key_env:
+                api_key = api_key or os.getenv(firecrawl_config.api_key_env)
+            
+            if api_key:
+                timeout = firecrawl_config.timeout if firecrawl_config else 60.0
+                client = FirecrawlMCPClient(api_key=api_key, timeout=timeout)
+                self.logger.info(
+                    "firecrawl_mcp_initialized",
+                    extra={"timeout": timeout},
+                )
+                return client
+            else:
+                self.logger.debug(
+                    "firecrawl_mcp_skipped",
+                    extra={"reason": "FIRECRAWL_API_KEY not found in environment"},
+                )
+                return None
+        except ImportError:
+            # mcp module not available (shouldn't happen but be safe)
+            self.logger.debug("firecrawl_mcp_module_not_available")
+            return None
+        except FirecrawlMCPError:
+            # Client initialization failed (no API key)
+            return None
 
     def set_approval_handler(self, handler: ApprovalHandler) -> None:
         self.approval_handler = handler

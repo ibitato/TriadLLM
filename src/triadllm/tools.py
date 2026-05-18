@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import shutil
 from pathlib import Path
-from typing import Awaitable, Callable
+from typing import TYPE_CHECKING, Awaitable, Callable
 
 from triadllm.domain import PermissionMode, ToolRequest, ToolResult, ToolRisk
+
+if TYPE_CHECKING:
+    from triadllm.mcp import FirecrawlMCPClient
 
 ApprovalHandler = Callable[[ToolRequest], Awaitable[bool]]
 
@@ -14,8 +18,9 @@ ALLOWLIST_ENV = {"HOME", "PATH", "PWD", "SHELL", "TERM", "USER", "USERNAME", "US
 
 
 class ToolBroker:
-    def __init__(self, workspace: Path | None = None) -> None:
+    def __init__(self, workspace: Path | None = None, firecrawl_client: "FirecrawlMCPClient | None" = None) -> None:
         self.workspace = workspace or Path.cwd()
+        self.firecrawl_client = firecrawl_client
 
     def available_tools(self) -> list[str]:
         return [
@@ -188,3 +193,219 @@ class ToolBroker:
             exit_code=process.returncode or 0,
             metadata={"command": command, "cwd": str(cwd)},
         )
+
+    async def _tool_firecrawl_scrape(self, args: dict[str, object]) -> ToolResult:
+        """Scrape a URL using Firecrawl MCP."""
+        if self.firecrawl_client is None:
+            return ToolResult(
+                tool="firecrawl_scrape",
+                success=False,
+                error="Firecrawl MCP is not configured. Set FIRECRAWL_API_KEY environment variable.",
+                exit_code=1,
+            )
+        url = str(args.get("url", "")).strip()
+        if not url:
+            return ToolResult(tool="firecrawl_scrape", success=False, error="url is required", exit_code=2)
+
+        formats = args.get("formats")
+        if isinstance(formats, str):
+            formats = [formats]
+        elif not isinstance(formats, list):
+            formats = None
+
+        wait_for = args.get("waitFor") or args.get("wait_for")
+        if wait_for is not None:
+            wait_for = float(wait_for)
+
+        timeout = args.get("timeout")
+        if timeout is not None:
+            timeout = float(timeout)
+
+        try:
+            # Build kwargs for scrape
+            scrape_kwargs: dict[str, object] = {}
+            if formats:
+                scrape_kwargs["formats"] = formats
+            if wait_for:
+                scrape_kwargs["wait_for"] = wait_for
+            if timeout:
+                scrape_kwargs["timeout"] = timeout
+
+            result = await self.firecrawl_client.scrape(url, **scrape_kwargs)
+            return ToolResult(
+                tool="firecrawl_scrape",
+                success=True,
+                output=json.dumps(result, ensure_ascii=False),
+                metadata={"url": url},
+            )
+        except Exception as e:
+            return ToolResult(
+                tool="firecrawl_scrape",
+                success=False,
+                error=str(e),
+                exit_code=1,
+                metadata={"url": url},
+            )
+
+    async def _tool_firecrawl_search(self, args: dict[str, object]) -> ToolResult:
+        """Search the web using Firecrawl MCP."""
+        if self.firecrawl_client is None:
+            return ToolResult(
+                tool="firecrawl_search",
+                success=False,
+                error="Firecrawl MCP is not configured. Set FIRECRAWL_API_KEY environment variable.",
+                exit_code=1,
+            )
+        query = str(args.get("query", "")).strip()
+        if not query:
+            return ToolResult(tool="firecrawl_search", success=False, error="query is required", exit_code=2)
+
+        limit = args.get("limit")
+        if limit is not None:
+            limit = int(limit)
+
+        page_options = args.get("pageOptions") or args.get("page_options")
+        if isinstance(page_options, str):
+            try:
+                page_options = json.loads(page_options)
+            except json.JSONDecodeError:
+                page_options = None
+
+        timeout = args.get("timeout")
+        if timeout is not None:
+            timeout = float(timeout)
+
+        try:
+            search_kwargs: dict[str, object] = {}
+            if limit:
+                search_kwargs["limit"] = limit
+            if page_options:
+                search_kwargs["page_options"] = page_options
+            if timeout:
+                search_kwargs["timeout"] = timeout
+
+            result = await self.firecrawl_client.search(query, **search_kwargs)
+            return ToolResult(
+                tool="firecrawl_search",
+                success=True,
+                output=json.dumps(result, ensure_ascii=False),
+                metadata={"query": query},
+            )
+        except Exception as e:
+            return ToolResult(
+                tool="firecrawl_search",
+                success=False,
+                error=str(e),
+                exit_code=1,
+                metadata={"query": query},
+            )
+
+    async def _tool_firecrawl_map(self, args: dict[str, object]) -> ToolResult:
+        """Map a website using Firecrawl MCP."""
+        if self.firecrawl_client is None:
+            return ToolResult(
+                tool="firecrawl_map",
+                success=False,
+                error="Firecrawl MCP is not configured. Set FIRECRAWL_API_KEY environment variable.",
+                exit_code=1,
+            )
+        url = str(args.get("url", "")).strip()
+        if not url:
+            return ToolResult(tool="firecrawl_map", success=False, error="url is required", exit_code=2)
+
+        search = args.get("search")
+        if search is not None:
+            search = str(search)
+
+        limit = args.get("limit")
+        if limit is not None:
+            limit = int(limit)
+
+        timeout = args.get("timeout")
+        if timeout is not None:
+            timeout = float(timeout)
+
+        try:
+            map_kwargs: dict[str, object] = {}
+            if search:
+                map_kwargs["search"] = search
+            if limit:
+                map_kwargs["limit"] = limit
+            if timeout:
+                map_kwargs["timeout"] = timeout
+
+            result = await self.firecrawl_client.map(url, **map_kwargs)
+            return ToolResult(
+                tool="firecrawl_map",
+                success=True,
+                output=json.dumps(result, ensure_ascii=False),
+                metadata={"url": url},
+            )
+        except Exception as e:
+            return ToolResult(
+                tool="firecrawl_map",
+                success=False,
+                error=str(e),
+                exit_code=1,
+                metadata={"url": url},
+            )
+
+    async def _tool_firecrawl_crawl(self, args: dict[str, object]) -> ToolResult:
+        """Crawl a website using Firecrawl MCP."""
+        if self.firecrawl_client is None:
+            return ToolResult(
+                tool="firecrawl_crawl",
+                success=False,
+                error="Firecrawl MCP is not configured. Set FIRECRAWL_API_KEY environment variable.",
+                exit_code=1,
+            )
+        url = str(args.get("url", "")).strip()
+        if not url:
+            return ToolResult(tool="firecrawl_crawl", success=False, error="url is required", exit_code=2)
+
+        max_pages = args.get("maxPages") or args.get("max_pages")
+        if max_pages is not None:
+            max_pages = int(max_pages)
+
+        include_subdomains = args.get("includeSubdomains") or args.get("include_subdomains")
+        if include_subdomains is not None:
+            include_subdomains = bool(include_subdomains)
+        else:
+            include_subdomains = False
+
+        allow_external = args.get("allowExternal") or args.get("allow_external")
+        if allow_external is not None:
+            allow_external = bool(allow_external)
+        else:
+            allow_external = False
+
+        timeout = args.get("timeout")
+        if timeout is not None:
+            timeout = float(timeout)
+
+        try:
+            crawl_kwargs: dict[str, object] = {}
+            if max_pages is not None:
+                crawl_kwargs["max_pages"] = max_pages
+            if include_subdomains is not None:
+                crawl_kwargs["include_subdomains"] = include_subdomains
+            if allow_external is not None:
+                crawl_kwargs["allow_external"] = allow_external
+            if timeout is not None:
+                crawl_kwargs["timeout"] = timeout
+
+            result = await self.firecrawl_client.crawl(url, **crawl_kwargs)
+            return ToolResult(
+                tool="firecrawl_crawl",
+                success=True,
+                output=json.dumps(result, ensure_ascii=False),
+                metadata={"url": url},
+            )
+        except Exception as e:
+            return ToolResult(
+                tool="firecrawl_crawl",
+                success=False,
+                error=str(e),
+                exit_code=1,
+                metadata={"url": url},
+            )
