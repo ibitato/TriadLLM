@@ -138,6 +138,7 @@ class FirecrawlClient:
         self,
         query: str,
         limit: int | None = None,
+        lang: str | None = None,
         sources: list[str] | None = None,
         categories: list[str] | None = None,
         country: str | None = None,
@@ -176,6 +177,8 @@ class FirecrawlClient:
         payload: dict[str, Any] = {"query": query}
         if limit is not None:
             payload["limit"] = limit
+        if lang is not None:
+            payload["lang"] = lang
         if sources:
             payload["sources"] = sources
         if categories:
