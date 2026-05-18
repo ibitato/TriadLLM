@@ -49,6 +49,12 @@ Current tools:
 - `search_files`
 - `get_env`
 - `pwd`
+- `firecrawl_scrape`
+- `firecrawl_search`
+- `firecrawl_map`
+- `firecrawl_crawl`
+
+The Firecrawl tools are built-in and only require the `FIRECRAWL_API_KEY` environment variable.
 
 ## Providers
 

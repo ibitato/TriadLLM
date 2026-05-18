@@ -37,7 +37,14 @@ Example:
     "validator": "validator_gpt54_medium"
   },
   "log_level": "INFO",
-  "log_retention_days": 7
+  "log_retention_days": 7,
+  "mcp_servers": [
+    {
+      "id": "firecrawl",
+      "timeout": 60.0,
+      "api_key_env": "FIRECRAWL_API_KEY"
+    }
+  ]
 }
 ```
 
@@ -51,6 +58,21 @@ Fields:
 - `agent_profiles`: per-role profile assignments
 - `log_level`: `DEBUG`, `INFO`, `WARNING`, or `ERROR`
 - `log_retention_days`: rotating log retention window
+- `mcp_servers`: array of MCP server configurations (currently only Firecrawl is supported)
+
+### MCP Servers Configuration
+
+The `mcp_servers` field configures external MCP (Model Context Protocol) integrations.
+
+Each entry supports:
+
+- `id`: server identifier (e.g., `"firecrawl"`)
+- `timeout`: request timeout in seconds
+- `api_key_env`: environment variable name containing the API key
+
+When configured and the corresponding environment variable is set, the MCP client
+is automatically initialized at startup. For Firecrawl, set `FIRECRAWL_API_KEY`
+in your environment and include the server in `mcp_servers`.
 
 ## `profiles.yaml`
 
