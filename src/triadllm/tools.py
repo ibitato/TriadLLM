@@ -211,11 +211,12 @@ class ToolBroker:
         if not url:
             return ToolResult(tool="firecrawl_scrape", success=False, error="url is required", exit_code=2)
 
-        formats = args.get("formats")
+        # Default formats: markdown for readability
+        formats = args.get("formats", ["markdown"])
         if isinstance(formats, str):
             formats = [formats]
         elif not isinstance(formats, list):
-            formats = None
+            formats = ["markdown"]
 
         wait_for = args.get("waitFor") or args.get("wait_for")
         if wait_for is not None:
@@ -264,7 +265,8 @@ class ToolBroker:
         if not query:
             return ToolResult(tool="firecrawl_search", success=False, error="query is required", exit_code=2)
 
-        limit = args.get("limit")
+        # Default: 5 results (Firecrawl recommended for most use cases)
+        limit = args.get("limit", 5)
         if limit is not None:
             limit = int(limit)
 
@@ -321,7 +323,8 @@ class ToolBroker:
         if search is not None:
             search = str(search)
 
-        limit = args.get("limit")
+        # Default: 5 results for site mapping
+        limit = args.get("limit", 5)
         if limit is not None:
             limit = int(limit)
 
@@ -367,7 +370,8 @@ class ToolBroker:
         if not url:
             return ToolResult(tool="firecrawl_crawl", success=False, error="url is required", exit_code=2)
 
-        max_pages = args.get("maxPages") or args.get("max_pages")
+        # Default: 5 pages max for crawl (Firecrawl recommended for quick crawls)
+        max_pages = args.get("maxPages") or args.get("max_pages", 5)
         if max_pages is not None:
             max_pages = int(max_pages)
 
