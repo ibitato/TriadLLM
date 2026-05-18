@@ -19,7 +19,7 @@
     }
   ],
   "firecrawl_defaults": {
-    "scrape_formats": ["markdown"],
+    "scrape_formats": ["text"],
     "scrape_only_main_content": true,
     "search_limit": 3,
     "search_lang": "en",

@@ -81,7 +81,7 @@ class McpServerSettings(BaseModel):
 class FirecrawlDefaults(BaseModel):
     """Default configuration for Firecrawl tools."""
 
-    scrape_formats: list[str] = Field(default_factory=lambda: ["markdown"])
+    scrape_formats: list[str] = Field(default_factory=lambda: ["text"])
     scrape_only_main_content: bool = True
     search_limit: int = 3
     search_lang: str = "en"

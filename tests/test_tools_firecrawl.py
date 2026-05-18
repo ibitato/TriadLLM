@@ -432,7 +432,7 @@ class TestFirecrawlDefaults:
         broker = ToolBroker()
         assert broker.firecrawl_defaults is not None
         assert isinstance(broker.firecrawl_defaults, FirecrawlDefaults)
-        assert broker.firecrawl_defaults.scrape_formats == ["markdown"]
+        assert broker.firecrawl_defaults.scrape_formats == ["text"]
         assert broker.firecrawl_defaults.search_limit == 3
         assert broker.firecrawl_defaults.search_only_main_content is True
         assert broker.firecrawl_defaults.map_limit == 3
@@ -819,7 +819,7 @@ class TestFirecrawlNewDefaults:
     def test_firecrawl_defaults_all_fields(self):
         """FirecrawlDefaults has all expected fields with correct defaults."""
         defaults = FirecrawlDefaults()
-        assert defaults.scrape_formats == ["markdown"]
+        assert defaults.scrape_formats == ["text"]
         assert defaults.scrape_only_main_content is True
         assert defaults.search_limit == 3
         assert defaults.search_lang == "en"

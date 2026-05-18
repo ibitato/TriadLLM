@@ -46,7 +46,7 @@ Example:
     }
   ],
   "firecrawl_defaults": {
-    "scrape_formats": ["markdown"],
+    "scrape_formats": ["text"],
     "search_limit": 5,
     "map_limit": 5,
     "crawl_max_pages": 5
@@ -88,7 +88,7 @@ This centralizes configuration instead of requiring parameters on each tool call
 
 Available fields:
 
-- `scrape_formats`: Default output formats for `firecrawl_scrape` (array of strings, e.g., `["markdown"]`, `["html"]`, `["markdown", "rawHtml"]`)
+- `scrape_formats`: Default output formats for `firecrawl_scrape` (array of strings, e.g., `["text"]`, `["markdown"]`, `["html"]`, `["markdown", "rawHtml"]`)
 - `scrape_only_main_content`: Default to only main content for `firecrawl_scrape` (boolean, default: true - reduces response size significantly)
 - `search_limit`: Default number of results for `firecrawl_search` (integer, default: 3)
 - `search_lang`: Default language for `firecrawl_search` (string, default: "en")
