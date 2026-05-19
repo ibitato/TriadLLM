@@ -70,7 +70,9 @@ async def test_runtime_handles_clarification_resume(tmp_path: Path) -> None:
                 ModelInvocationResult(parsed=AgentResponse(kind=AgentActionKind.FINAL, message="Analicé main.py")),
             ],
             AgentRole.VALIDATOR: [
-                ModelInvocationResult(parsed=AgentResponse(kind=AgentActionKind.FINAL, message="La respuesta es consistente")),
+                ModelInvocationResult(
+                    parsed=AgentResponse(kind=AgentActionKind.FINAL, message="La respuesta es consistente")
+                ),
             ],
             AgentRole.ORCHESTRATOR: [
                 ModelInvocationResult(
@@ -107,10 +109,18 @@ async def test_runtime_handles_tool_denial(tmp_path: Path) -> None:
                         ),
                     ),
                 ),
-                ModelInvocationResult(parsed=AgentResponse(kind=AgentActionKind.FINAL, message="No pude ejecutar, pero te explico el siguiente paso.")),
+                ModelInvocationResult(
+                    parsed=AgentResponse(
+                        kind=AgentActionKind.FINAL, message="No pude ejecutar, pero te explico el siguiente paso."
+                    )
+                ),
             ],
             AgentRole.VALIDATOR: [
-                ModelInvocationResult(parsed=AgentResponse(kind=AgentActionKind.FINAL, message="La negativa está correctamente reflejada.")),
+                ModelInvocationResult(
+                    parsed=AgentResponse(
+                        kind=AgentActionKind.FINAL, message="La negativa está correctamente reflejada."
+                    )
+                ),
             ],
             AgentRole.ORCHESTRATOR: [
                 ModelInvocationResult(
@@ -168,8 +178,12 @@ async def test_runtime_emits_reasoning_events(tmp_path: Path) -> None:
 async def test_runtime_passes_full_visible_conversation(tmp_path: Path) -> None:
     gateway = FakeGateway(
         {
-            AgentRole.PROCESSOR: [ModelInvocationResult(parsed=AgentResponse(kind=AgentActionKind.FINAL, message="proc"))],
-            AgentRole.VALIDATOR: [ModelInvocationResult(parsed=AgentResponse(kind=AgentActionKind.FINAL, message="val"))],
+            AgentRole.PROCESSOR: [
+                ModelInvocationResult(parsed=AgentResponse(kind=AgentActionKind.FINAL, message="proc"))
+            ],
+            AgentRole.VALIDATOR: [
+                ModelInvocationResult(parsed=AgentResponse(kind=AgentActionKind.FINAL, message="val"))
+            ],
             AgentRole.ORCHESTRATOR: [
                 ModelInvocationResult(
                     parsed=ConsolidatedResponse(

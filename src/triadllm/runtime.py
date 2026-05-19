@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 import logging
 import os
-from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -41,7 +40,7 @@ class TriadRuntime:
         model_gateway: ModelGateway,
         tool_broker: ToolBroker | None = None,
         logger: logging.Logger | None = None,
-        firecrawl_client: "FirecrawlClient | None" = None,
+        firecrawl_client: FirecrawlClient | None = None,
     ) -> None:
         self.config_manager = config_manager
         self.settings = settings
@@ -49,13 +48,13 @@ class TriadRuntime:
         self.translator = translator
         self.model_gateway = model_gateway
         self.logger = logger or logging.getLogger(__name__)
-        
+
         # Inicializar cliente Firecrawl MCP si no se pasa
         if firecrawl_client:
             self.firecrawl_client = firecrawl_client
         else:
             self.firecrawl_client = self._initialize_firecrawl_client(settings)
-        
+
         # Crear ToolBroker con el cliente MCP y configuración de defaults
         if tool_broker is None:
             self.tool_broker = ToolBroker(
@@ -66,11 +65,11 @@ class TriadRuntime:
         else:
             # Si se pasa tool_broker, inyectar el cliente y defaults si es posible
             self.tool_broker = tool_broker
-            if hasattr(self.tool_broker, 'firecrawl_client'):
+            if hasattr(self.tool_broker, "firecrawl_client"):
                 self.tool_broker.firecrawl_client = self.firecrawl_client
-            if hasattr(self.tool_broker, 'firecrawl_defaults'):
+            if hasattr(self.tool_broker, "firecrawl_defaults"):
                 self.tool_broker.firecrawl_defaults = settings.firecrawl_defaults
-        
+
         self.history: list[SessionEvent] = []
         self.pending: PendingClarification | None = None
         self.approval_handler: ApprovalHandler | None = None
@@ -88,7 +87,7 @@ class TriadRuntime:
             },
         )
 
-    def _initialize_firecrawl_client(self, settings: UserSettings) -> "FirecrawlClient | None":
+    def _initialize_firecrawl_client(self, settings: UserSettings) -> FirecrawlClient | None:
         """Initialize Firecrawl client if configured and API key is available."""
         try:
             from triadllm.firecrawl import FirecrawlClient, FirecrawlError
@@ -98,14 +97,14 @@ class TriadRuntime:
                 (s for s in settings.mcp_servers if s.id == "firecrawl"),
                 None,
             )
-            
+
             # Get API key from environment
             api_key = os.getenv("FIRECRAWL_API_KEY")
-            
+
             # Also check if config specifies a different env var
             if firecrawl_config and firecrawl_config.api_key_env:
                 api_key = api_key or os.getenv(firecrawl_config.api_key_env)
-            
+
             if api_key:
                 timeout = firecrawl_config.timeout if firecrawl_config else 60.0
                 client = FirecrawlClient(api_key=api_key, timeout=timeout)
@@ -173,8 +172,7 @@ class TriadRuntime:
 
     def status(self) -> RuntimeStatus:
         active_profiles = {
-            role: self.settings.agent_profiles.get(role) or self.settings.default_profile
-            for role in AgentRole
+            role: self.settings.agent_profiles.get(role) or self.settings.default_profile for role in AgentRole
         }
         return RuntimeStatus(
             language=self.settings.language,
@@ -376,7 +374,9 @@ class TriadRuntime:
                 },
             )
             if invocation.reasoning_summary or invocation.reasoning_tokens:
-                self._emit_reasoning(events, role, invocation.reasoning_summary, invocation.reasoning_tokens, invocation.model_name)
+                self._emit_reasoning(
+                    events, role, invocation.reasoning_summary, invocation.reasoning_tokens, invocation.model_name
+                )
 
             if response.kind == AgentActionKind.FINAL:
                 return response
@@ -520,11 +520,7 @@ class TriadRuntime:
             SessionEventKind.CLARIFICATION,
             SessionEventKind.FINAL,
         }
-        return [
-            event.model_dump(mode="json")
-            for event in self.history
-            if event.kind in visible_kinds
-        ]
+        return [event.model_dump(mode="json") for event in self.history if event.kind in visible_kinds]
 
     def _emit(
         self,

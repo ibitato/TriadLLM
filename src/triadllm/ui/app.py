@@ -1,0 +1,606 @@
+from __future__ import annotations
+
+import shlex
+from collections import deque
+
+from textual import on
+from textual.app import App, ComposeResult
+from textual.containers import Container, Horizontal, VerticalScroll
+from textual.widgets import Button, Markdown, Static
+from textual.worker import Worker
+
+from triadllm.config import ConfigManager
+from triadllm.domain import AgentRole, PermissionMode, SessionEvent, SessionEventKind, ToolRequest
+from triadllm.i18n import Translator
+from triadllm.runtime import TriadRuntime
+from triadllm.ui.screens import ConfigEditorScreen, EditorScreen, PermissionScreen, SplashScreen
+from triadllm.ui.widgets import ComposerArea
+
+
+class ChatBlock(Static):
+    def __init__(self, title: str, body: str, kind: str) -> None:
+        super().__init__(body, classes=f"chat-block {kind}")
+        self.kind = kind
+        self.border_title = title
+
+
+class MarkdownChatBlock(Markdown):
+    def __init__(self, title: str, body: str, kind: str) -> None:
+        super().__init__(body, classes=f"chat-block {kind}")
+        self.kind = kind
+        self.border_title = title
+
+
+class TriadApp(App[None]):
+    CSS = """
+    Screen {
+        background: #0a0f0d;
+        color: #b6ff7a;
+    }
+
+    #root {
+        height: 100%;
+        layout: vertical;
+        padding: 1;
+    }
+
+    #transcript {
+        height: 1fr;
+        min-height: 8;
+        margin: 0 1;
+        border: round #1f6f46;
+        padding: 1;
+        background: #050806;
+    }
+
+    #composer-row {
+        height: 5;
+        min-height: 5;
+        margin: 1 1 0 1;
+        width: 100%;
+        align: center middle;
+    }
+
+    #composer {
+        width: 1fr;
+        min-width: 20;
+        height: 5;
+        border: round #1f6f46;
+        background: #111111;
+        color: #f2ffd4;
+    }
+
+    #send {
+        width: 10;
+        height: 5;
+        margin-left: 1;
+        background: #ff9f1c;
+        color: #111111;
+    }
+
+    #cancel-turn {
+        width: 10;
+        height: 5;
+        margin-left: 1;
+    }
+
+    #statusbar {
+        height: 1;
+        min-height: 1;
+        margin: 1 1 0 1;
+        color: #ffcf70;
+        content-align: left middle;
+        text-overflow: ellipsis;
+        width: 100%;
+    }
+
+    .chat-block {
+        width: 100%;
+        margin-bottom: 1;
+        padding: 0 1;
+        border: round #1f6f46;
+        background: #101612;
+    }
+
+    .user {
+        border: round #b6ff7a;
+    }
+
+    .system {
+        border: round #ff9f1c;
+    }
+
+    .tool {
+        border: round #ffc857;
+    }
+
+    .reasoning {
+        border: round #7bdff2;
+        color: #7bdff2;
+        text-style: italic dim;
+    }
+
+    .clarification {
+        border: round #f77f00;
+    }
+
+    .final {
+        border: round #2ec4b6;
+    }
+
+    .is-hidden {
+        display: none;
+    }
+
+    .status-value {
+        text-style: bold;
+    }
+    """
+
+    def __init__(
+        self,
+        runtime: TriadRuntime,
+        translator: Translator,
+        config_manager: ConfigManager,
+        *,
+        show_splash: bool = True,
+        splash_timeout: float = 5.0,
+    ) -> None:
+        super().__init__()
+        self.runtime = runtime
+        self.translator = translator
+        self.config_manager = config_manager
+        self.busy = False
+        self.pending_inputs: deque[str] = deque()
+        self.turn_worker: Worker[None] | None = None
+        self.show_splash = show_splash
+        self.splash_timeout = splash_timeout
+
+    def compose(self) -> ComposeResult:
+        with Container(id="root"):
+            yield VerticalScroll(id="transcript")
+            with Horizontal(id="composer-row"):
+                yield ComposerArea(
+                    "",
+                    id="composer",
+                    soft_wrap=True,
+                    show_line_numbers=False,
+                    compact=True,
+                    highlight_cursor_line=False,
+                    placeholder="",
+                )
+                yield Button("", id="send")
+                yield Button("", id="cancel-turn")
+            yield Static(id="statusbar")
+
+    async def on_mount(self) -> None:
+        self.runtime.set_approval_handler(self._prompt_permission)
+        self._refresh_chrome()
+        self.query_one("#composer", ComposerArea).focus()
+        await self._add_block(
+            self.translator.t("event.system"),
+            self.translator.t("app.welcome"),
+            "system",
+        )
+        if not self.runtime.profiles:
+            await self._add_block(
+                self.translator.t("event.system"),
+                self.translator.t(
+                    "app.no_profiles",
+                    sample=self.config_manager.sample_profiles_path(),
+                    target=self.config_manager.paths.profiles_path,
+                ),
+                "system",
+            )
+        if self.show_splash:
+            self.push_screen(
+                SplashScreen(self.translator, timeout_seconds=self.splash_timeout),
+                callback=lambda _: self.query_one("#composer", ComposerArea).focus(),
+            )
+        self._apply_visibility_settings()
+        self._refresh_status()
+
+    @on(ComposerArea.SubmitRequested)
+    async def handle_submit(self, event: ComposerArea.SubmitRequested) -> None:
+        await self._dispatch_input(event.text)
+
+    @on(ComposerArea.ExpandRequested)
+    def handle_expand_request(self, event: ComposerArea.ExpandRequested) -> None:
+        event.stop()
+        composer = self.query_one("#composer", ComposerArea)
+
+        def handle_result(result: str | None) -> None:
+            composer.focus()
+            if result is None:
+                return
+            composer.load_text(result)
+            self.run_worker(
+                self._dispatch_input(result),
+                name="editor-submit",
+                group="editor-submit",
+                exclusive=True,
+                exit_on_error=False,
+                thread=False,
+            )
+
+        self.push_screen(EditorScreen(composer.text, self.translator), callback=handle_result)
+
+    @on(Button.Pressed, "#send")
+    async def handle_send(self) -> None:
+        composer = self.query_one("#composer", ComposerArea)
+        await self._dispatch_input(composer.text)
+
+    @on(Button.Pressed, "#cancel-turn")
+    async def handle_cancel_turn(self) -> None:
+        await self._cancel_active_turn()
+
+    async def _dispatch_input(self, raw: str) -> None:
+        text = raw.strip()
+        if not text:
+            return
+
+        if self.busy and not text.startswith("/"):
+            composer = self.query_one("#composer", ComposerArea)
+            composer.load_text("")
+            self.pending_inputs.append(text)
+            await self._add_block(
+                self.translator.t("event.system"),
+                self.translator.t("queue.enqueued", count=len(self.pending_inputs)),
+                "system",
+            )
+            self.runtime.logger.info(
+                "message_queued",
+                extra={"queued_count": len(self.pending_inputs), "message_preview": text[:500]},
+            )
+            self._refresh_status()
+            return
+
+        composer = self.query_one("#composer", ComposerArea)
+        composer.load_text("")
+
+        if text.startswith("/"):
+            await self._handle_command(text)
+            return
+
+        self._start_turn_worker(text)
+
+    async def _run_user_turn(self, text: str) -> None:
+        try:
+            events = await self.runtime.submit_user_message(text)
+            for event in events:
+                await self._render_event(event)
+        except Exception as exc:  # noqa: BLE001
+            self.runtime.logger.exception("app_turn_worker_error", extra={"message": text})
+            await self._add_block(
+                self.translator.t("event.error"),
+                self.translator.t("system.error", error=str(exc)),
+                "system",
+            )
+        finally:
+            self.busy = False
+            self.turn_worker = None
+            self._refresh_status()
+            self.call_after_refresh(self._start_next_queued_turn)
+
+    async def _handle_command(self, raw: str) -> None:
+        parts = shlex.split(raw)
+        command = parts[0].lower()
+        args = parts[1:]
+
+        self.runtime.logger.debug("command_received", extra={"raw": raw, "command": command, "cmd_args": args})
+
+        if command == "/help":
+            body = self.translator.t("slash.help")
+        elif command == "/status":
+            status = self.runtime.status()
+            body = self.translator.t(
+                "slash.status",
+                language=status.language,
+                permission=status.permission_mode.value,
+                default_profile=status.default_profile or self.translator.t("status.none"),
+                pending=status.pending_clarification,
+                log_file=status.logs_path,
+            )
+        elif command == "/config":
+            self.runtime.logger.debug(
+                "config_command_check",
+                extra={"cmd_args": args, "has_args": bool(args), "first_arg": args[0] if args else None},
+            )
+            if args and args[0] == "edit":
+                self.runtime.logger.info("config_edit_command_received")
+                settings_dict = self.runtime.settings.model_dump()
+                self.runtime.logger.info("config_edit_settings_dict", extra={"settings_dict": settings_dict})
+                if "permission_mode" in settings_dict and hasattr(settings_dict["permission_mode"], "value"):
+                    settings_dict["permission_mode"] = settings_dict["permission_mode"].value
+                profiles = self.runtime.profiles
+                self.runtime.logger.info("config_edit_profiles", extra={"profiles": list(profiles.keys())})
+
+                async def handle_edit_result(result: str | None) -> None:
+                    if result is None:
+                        body = self.translator.t("config_editor.cancelled")
+                    else:
+                        try:
+                            if "language" in result:
+                                self.runtime.set_language(result["language"])
+                            if "permission_mode" in result:
+                                self.runtime.set_permission_mode(result["permission_mode"])
+                            if "show_reasoning" in result:
+                                self.runtime.set_reasoning_visibility(result["show_reasoning"])
+                            if "show_tool_results" in result:
+                                self.runtime.set_tool_results_visibility(result["show_tool_results"])
+                            if "default_profile" in result and result["default_profile"]:
+                                self.runtime.set_default_profile(result["default_profile"])
+                            self.config_manager.save_settings(self.runtime.settings)
+                            body = self.translator.t("config_editor.saved")
+                            if "language" in result:
+                                self._refresh_chrome()
+                        except Exception as e:
+                            body = self.translator.t("config_editor.error.save", error=str(e))
+
+                    await self._add_block(self.translator.t("event.system"), body, "system")
+                    self._refresh_status()
+
+                try:
+                    self.runtime.logger.info("config_edit_screen_pushed")
+                    self.push_screen(
+                        ConfigEditorScreen(settings_dict, profiles, self.translator), callback=handle_edit_result
+                    )
+                    self.runtime.logger.info("config_edit_screen_push_complete")
+                except Exception as e:
+                    self.runtime.logger.exception("config_edit_screen_creation_failed", extra={"error": str(e)})
+                    body = self.translator.t("config_editor.error.screen_creation", error=str(e))
+                    await self._add_block(self.translator.t("event.system"), body, "system")
+                return
+            else:
+                snapshot = self.config_manager.config_snapshot(self.runtime.settings, self.runtime.profiles)
+                paths_dict = snapshot["paths"]
+                settings = snapshot["settings"]
+                profiles_data = snapshot["profiles"]
+                body = self.translator.t(
+                    "slash.config",
+                    paths_config_dir=paths_dict["config_dir"],
+                    paths_settings_path=paths_dict["settings_path"],
+                    paths_logs_path=paths_dict["log_dir"],
+                    paths_sessions_path=paths_dict["sessions_dir"],
+                    paths_profiles_path=paths_dict["profiles_path"],
+                    settings_language=settings["language"],
+                    settings_permission_mode=settings["permission_mode"],
+                    settings_show_reasoning=settings["show_reasoning"],
+                    settings_show_tool_results=settings["show_tool_results"],
+                    settings_default_profile=settings.get("default_profile", "None"),
+                    profiles_count=len(profiles_data),
+                    sample_profiles=snapshot["sample_profiles"],
+                )
+                await self._add_block(self.translator.t("event.system"), body, "system")
+                self._refresh_status()
+                return
+        elif command == "/permissions":
+            if not args or args[0] not in {"ask", "yolo"}:
+                body = self.translator.t("slash.permissions.invalid")
+            else:
+                self.runtime.set_permission_mode(PermissionMode(args[0]))
+                body = self.translator.t("slash.permissions.changed", mode=args[0])
+        elif command == "/lang":
+            if not args or args[0] not in {"es", "en"}:
+                body = self.translator.t("slash.lang.invalid")
+            else:
+                self.runtime.set_language(args[0])
+                self._refresh_chrome()
+                body = self.translator.t("slash.lang.changed", language=args[0])
+        elif command == "/models":
+            status = self.runtime.status()
+            body = "\n\n".join(
+                [
+                    self.translator.t(
+                        "slash.models",
+                        profiles=", ".join(status.available_profiles) or self.translator.t("status.none"),
+                        orchestrator=self._describe_profile(status.active_profiles[AgentRole.ORCHESTRATOR]),
+                        processor=self._describe_profile(status.active_profiles[AgentRole.PROCESSOR]),
+                        validator=self._describe_profile(status.active_profiles[AgentRole.VALIDATOR]),
+                    )
+                ]
+            )
+        elif command == "/model":
+            body = await self._handle_model_command(args)
+        elif command == "/tools":
+            body = self.translator.t("slash.tools", tools=", ".join(self.runtime.tool_broker.available_tools()))
+        elif command == "/reasoning":
+            if not args or args[0] not in {"on", "off"}:
+                body = self.translator.t("slash.reasoning.invalid")
+            else:
+                visible = args[0] == "on"
+                self.runtime.set_reasoning_visibility(visible)
+                self._apply_visibility_settings()
+                body = self.translator.t("slash.reasoning.changed", state=args[0])
+        elif command == "/toolresults":
+            if not args or args[0] not in {"on", "off"}:
+                body = self.translator.t("slash.toolresults.invalid")
+            else:
+                visible = args[0] == "on"
+                self.runtime.set_tool_results_visibility(visible)
+                self._apply_visibility_settings()
+                body = self.translator.t("slash.toolresults.changed", state=args[0])
+        elif command == "/new":
+            self.runtime.reset_conversation()
+            self.query_one("#transcript", VerticalScroll).remove_children()
+            await self._add_block(
+                self.translator.t("event.system"),
+                self.translator.t("app.welcome"),
+                "system",
+            )
+            body = self.translator.t("slash.new")
+        elif command == "/clear":
+            self.query_one("#transcript", VerticalScroll).remove_children()
+            body = self.translator.t("slash.clear")
+        elif command == "/cancel":
+            cancelled = await self._cancel_active_turn()
+            body = self.translator.t("slash.cancel.changed" if cancelled else "slash.cancel.idle")
+        elif command == "/quit":
+            self.exit()
+            return
+        else:
+            body = self.translator.t("slash.unknown", command=command)
+
+        await self._add_block(self.translator.t("event.system"), body, "system")
+        self._refresh_status()
+
+    async def _handle_model_command(self, args: list[str]) -> str:
+        if len(args) != 3 or args[0] != "set":
+            return self.translator.t("slash.model.invalid")
+        role_raw = args[1].lower()
+        profile_id = args[2]
+        try:
+            role = AgentRole(role_raw)
+        except ValueError:
+            return self.translator.t("slash.model.invalid")
+        if profile_id not in self.runtime.profiles:
+            return self.translator.t("slash.model.missing", profile=profile_id)
+        self.runtime.set_agent_profile(role, profile_id)
+        if self.runtime.settings.default_profile is None:
+            self.runtime.set_default_profile(profile_id)
+        return self.translator.t("slash.model.changed", role=role.value, profile=profile_id)
+
+    async def _render_event(self, event: SessionEvent) -> None:
+        kind_map = {
+            SessionEventKind.USER: "user",
+            SessionEventKind.SYSTEM: "system",
+            SessionEventKind.TOOL: "tool",
+            SessionEventKind.REASONING: "reasoning",
+            SessionEventKind.CLARIFICATION: "clarification",
+            SessionEventKind.FINAL: "final",
+        }
+        await self._add_block(event.title, event.body, kind_map[event.kind])
+
+    async def _add_block(self, title: str, body: str, kind: str) -> None:
+        transcript = self.query_one("#transcript", VerticalScroll)
+
+        if "**" in body or "#" in body:
+            block = MarkdownChatBlock(title, body, kind)
+        else:
+            block = ChatBlock(title, body, kind)
+
+        await transcript.mount(block)
+        if kind == "reasoning" and not self.runtime.settings.show_reasoning:
+            block.add_class("is-hidden")
+        if kind == "tool" and not self.runtime.settings.show_tool_results:
+            block.add_class("is-hidden")
+        transcript.scroll_end(animate=False)
+
+    def _refresh_chrome(self) -> None:
+        self.query_one("#composer", ComposerArea).placeholder = self.translator.t("input.placeholder")
+        self.query_one("#send", Button).label = self.translator.t("button.send")
+        self.query_one("#cancel-turn", Button).label = self.translator.t("button.cancel")
+        self.title = self.translator.t("app.title")
+        self.sub_title = "Multi-agent terminal"
+        self._apply_visibility_settings()
+        self._refresh_status()
+
+    def _refresh_status(self) -> None:
+        status = self.runtime.status()
+        state = self.translator.t("status.busy") if self.busy else self.translator.t("status.ready")
+        default_profile = status.default_profile or self.translator.t("status.none")
+        if len(default_profile) > 28:
+            default_profile = f"{default_profile[:25]}..."
+        cancel_button = self.query_one("#cancel-turn", Button)
+        cancel_button.disabled = not self.busy
+        self.query_one("#statusbar", Static).update(
+            self.translator.t(
+                "status.line",
+                state=state,
+                language=status.language,
+                permission=status.permission_mode.value,
+                profile=default_profile,
+                reasoning=self.translator.t("status.on") if status.show_reasoning else self.translator.t("status.off"),
+                tools=self.translator.t("status.on") if status.show_tool_results else self.translator.t("status.off"),
+                queued=len(self.pending_inputs),
+            )
+        )
+
+    async def _prompt_permission(self, request: ToolRequest) -> bool:
+        self.runtime.logger.info(
+            "permission_prompt_shown",
+            extra={
+                "tool": request.tool,
+                "risk": request.risk.value,
+                "arguments": request.arguments,
+                "reason": request.reason,
+            },
+        )
+        approved = bool(await self.push_screen_wait(PermissionScreen(request, self.translator)))
+        self.runtime.logger.info(
+            "permission_prompt_resolved",
+            extra={
+                "tool": request.tool,
+                "approved": approved,
+            },
+        )
+        return approved
+
+    def _apply_visibility_settings(self) -> None:
+        transcript = self.query_one("#transcript", VerticalScroll)
+        for child in transcript.children:
+            if isinstance(child, ChatBlock) and child.kind == "reasoning":
+                child.set_class(not self.runtime.settings.show_reasoning, "is-hidden")
+            if isinstance(child, ChatBlock) and child.kind == "tool":
+                child.set_class(not self.runtime.settings.show_tool_results, "is-hidden")
+
+    def _start_turn_worker(self, text: str) -> None:
+        self.busy = True
+        self._refresh_status()
+        self.turn_worker = self.run_worker(
+            self._run_user_turn(text),
+            name="chat-turn",
+            group="chat-turn",
+            exclusive=True,
+            exit_on_error=False,
+            thread=False,
+        )
+
+    def _start_next_queued_turn(self) -> None:
+        if self.busy or not self.pending_inputs:
+            self._refresh_status()
+            return
+        next_message = self.pending_inputs.popleft()
+        self.runtime.logger.info(
+            "message_dequeued",
+            extra={"queued_count_after_pop": len(self.pending_inputs), "message_preview": next_message[:500]},
+        )
+        self._start_turn_worker(next_message)
+
+    async def _cancel_active_turn(self) -> bool:
+        worker = self.turn_worker
+        if worker is None or worker.is_finished:
+            return False
+        worker.cancel()
+        self.runtime.logger.info(
+            "turn_cancel_requested",
+            extra={"queued_count": len(self.pending_inputs)},
+        )
+        await self._add_block(
+            self.translator.t("event.system"),
+            self.translator.t("queue.cancelled"),
+            "system",
+        )
+        return True
+
+    def _describe_profile(self, profile_id: str | None) -> str:
+        if profile_id is None:
+            return self.translator.t("status.none")
+        profile = self.runtime.profiles.get(profile_id)
+        if profile is None:
+            return profile_id
+        details = [
+            f"id={profile.id}",
+            f"provider={profile.provider.value if profile.provider else 'auto'}",
+            f"model={profile.model}",
+            f"temp={profile.temperature}",
+        ]
+        if profile.context_window is not None:
+            details.append(f"context={profile.context_window}")
+        if profile.max_output_tokens_limit is not None:
+            details.append(f"max_output={profile.max_output_tokens_limit}")
+        if profile.reasoning_effort is not None:
+            details.append(f"effort={profile.reasoning_effort}")
+        if profile.reasoning_summary is not None:
+            details.append(f"summary={profile.reasoning_summary}")
+        return ", ".join(details)

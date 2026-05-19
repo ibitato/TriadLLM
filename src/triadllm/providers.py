@@ -12,14 +12,14 @@ from openai import AsyncOpenAI
 from triadllm.domain import (
     AgentActionKind,
     AgentResponse,
+    AgentRole,
     ConsolidatedResponse,
-    ToolRequest,
     ModelInvocationResult,
     ProviderBackend,
     ProviderProfile,
     SchemaT,
+    ToolRequest,
     UserSettings,
-    AgentRole,
 )
 
 
@@ -30,8 +30,7 @@ class ModelGateway(Protocol):
         schema: type[SchemaT],
         system_prompt: str,
         payload: dict[str, Any],
-    ) -> ModelInvocationResult[SchemaT]:
-        ...
+    ) -> ModelInvocationResult[SchemaT]: ...
 
 
 class ProviderGateway:
@@ -510,9 +509,7 @@ class ProviderGateway:
 
         for tool_name in ("list_dir", "search_files", "read_file", "pwd", "get_env", "shell_exec", "write_file"):
             if tool_name in reasoning_text or tool_name in lowered:
-                reason = (
-                    f"Recovered from reasoning-only provider output; inferred tool request for {tool_name}."
-                )
+                reason = f"Recovered from reasoning-only provider output; inferred tool request for {tool_name}."
                 return AgentResponse(
                     kind=AgentActionKind.REQUEST_TOOL,
                     tool_request=ToolRequest(tool=tool_name, arguments={}, reason=reason),
@@ -552,8 +549,10 @@ class ProviderGateway:
             synthesis = "Automatic synthesis: showing the Processor and Validator outputs because the provider did not return structured JSON in the final step."
 
         return ConsolidatedResponse(
-            processor_view=processor_output or ("Sin salida del Processor." if language == "es" else "No Processor output."),
-            validator_view=validator_output or ("Sin salida del Validator." if language == "es" else "No Validator output."),
+            processor_view=processor_output
+            or ("Sin salida del Processor." if language == "es" else "No Processor output."),
+            validator_view=validator_output
+            or ("Sin salida del Validator." if language == "es" else "No Validator output."),
             synthesis=synthesis,
         )
 

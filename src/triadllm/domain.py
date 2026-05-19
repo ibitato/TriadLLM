@@ -1,14 +1,12 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+import json
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any, Generic, Literal, TypeVar
 
-import json
-
 from pydantic import BaseModel, Field, field_validator, model_validator
-
 
 LanguageCode = Literal["en", "es"]
 
@@ -80,7 +78,7 @@ class McpServerSettings(BaseModel):
 
 class FirecrawlDefaults(BaseModel):
     """Default configuration for Firecrawl tools (v2 API).
-    
+
     All parameters use v2 API naming conventions.
     """
 
@@ -90,11 +88,11 @@ class FirecrawlDefaults(BaseModel):
     scrape_wait_for: float | None = None
     scrape_include_tags: list[str] | None = None
     scrape_exclude_tags: list[str] | None = None
-    scrape_remove_base64_images: bool = False
+    scrape_remove_base64_images: bool = True
 
     # Search defaults
-    search_limit: int = 3
-    search_sources: list[str] | None = ["web"]
+    search_limit: int = 5
+    search_sources: list[str] | None = Field(default_factory=lambda: ["web"])
     search_categories: list[str] | None = None
     search_lang: str = "en"
     search_country: str | None = None
@@ -103,16 +101,15 @@ class FirecrawlDefaults(BaseModel):
     search_include_domains: list[str] | None = None
     search_exclude_domains: list[str] | None = None
     search_ignore_invalid_urls: bool = True
-    search_fetch_content: bool = True
     search_only_main_content: bool = True
 
     # Map defaults
-    map_limit: int = 3
+    map_limit: int = 5
     map_include_subdomains: bool = False
 
     # Crawl defaults
-    crawl_limit: int = 3
-    crawl_allow_subdomains: bool = False
+    crawl_limit: int = 5
+    crawl_allow_backward_links: bool = False
     crawl_allow_external_links: bool = False
 
 
@@ -152,7 +149,7 @@ class AgentResponse(BaseModel):
     tool_request: ToolRequest | None = None
 
     @model_validator(mode="after")
-    def validate_payload(self) -> "AgentResponse":
+    def validate_payload(self) -> AgentResponse:
         if self.kind == AgentActionKind.ASK_USER and not self.question:
             raise ValueError("question is required when kind=ask_user")
         if self.kind == AgentActionKind.REQUEST_TOOL and not self.tool_request:

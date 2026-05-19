@@ -58,7 +58,9 @@ class BlockingGateway:
             )
         if role == AgentRole.VALIDATOR:
             return ModelInvocationResult(
-                parsed=AgentResponse(kind=AgentActionKind.FINAL, message=f"Validator checked: {payload['processor_answer']}")
+                parsed=AgentResponse(
+                    kind=AgentActionKind.FINAL, message=f"Validator checked: {payload['processor_answer']}"
+                )
             )
         return ModelInvocationResult(
             parsed=ConsolidatedResponse(

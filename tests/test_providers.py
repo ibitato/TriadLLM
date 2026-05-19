@@ -1,8 +1,15 @@
 import pytest
 
-from triadllm.domain import ProviderBackend, ProviderProfile, UserSettings
+from triadllm.domain import (
+    AgentActionKind,
+    AgentResponse,
+    AgentRole,
+    ModelInvocationResult,
+    ProviderBackend,
+    ProviderProfile,
+    UserSettings,
+)
 from triadllm.providers import ProviderGateway
-from triadllm.domain import AgentActionKind, AgentResponse, AgentRole, ModelInvocationResult
 
 
 def test_extract_mistral_message_parts() -> None:

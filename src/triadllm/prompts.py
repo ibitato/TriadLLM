@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from triadllm.domain import AgentRole, LanguageCode
 
-
 LANGUAGE_NAMES: dict[LanguageCode, str] = {
     "en": "English",
     "es": "Spanish",
@@ -68,8 +67,8 @@ Tool reference:
 - `firecrawl_search`
   Use to search the web for information. Requires FIRECRAWL_API_KEY environment variable.
   Arguments: `{"query": "latest Python features"}` or `{"query": "latest Python features", "limit": 3, "sources": ["web"], "categories": ["github"], "country": "us", "lang": "en"}`
-  `query` is required. `limit` (number, default: 3 from config), `sources` (array: web, news, images), `categories` (array: github, research, pdf), `country` (ISO code), `location` (string), `tbs` (time filter), `includeDomains` (array), `excludeDomains` (array), `ignoreInvalidURLs` (boolean), `scrapeOptions` (object with `formats`, `onlyMainContent`), `pageOptions` (object with `fetchContent`, `onlyMainContent`), and `timeout` (number) are optional.
-  **Note**: Use `pageOptions.fetchContent: true` (default) to get page content in results. Defaults can be configured in settings.json under `firecrawl_defaults` fields.
+  `query` is required. `limit` (number, default: 3 from config), `sources` (array: web, news, images), `categories` (array: github, research, pdf), `country` (ISO code), `location` (string), `tbs` (time filter), `includeDomains` (array), `excludeDomains` (array), `ignoreInvalidURLs` (boolean), `scrapeOptions` (object with `formats`, `onlyMainContent`), and `timeout` (number) are optional.
+  **Note**: Use `scrapeOptions.formats: ["markdown"]` to get page content in results. Defaults can be configured in settings.json under `firecrawl_defaults` fields.
 
 - `firecrawl_map`
   Use to discover URLs on a website. Requires FIRECRAWL_API_KEY environment variable.
@@ -79,9 +78,9 @@ Tool reference:
 
 - `firecrawl_crawl`
   Use to crawl an entire website. Requires FIRECRAWL_API_KEY environment variable.
-  Arguments: `{"url": "https://example.com"}` or `{"url": "https://example.com", "limit": 3, "allowSubdomains": false, "allowExternalLinks": false}`
-  `url` is required. `limit` (number, default: 3 from config), `allowSubdomains` (boolean, default: false from config), `allowExternalLinks` (boolean, default: false from config), and `timeout` (number) are optional.
-  Defaults can be configured in settings.json under `firecrawl_defaults.crawl_limit`, `firecrawl_defaults.crawl_allow_subdomains`, and `firecrawl_defaults.crawl_allow_external_links`.
+  Arguments: `{"url": "https://example.com"}` or `{"url": "https://example.com", "limit": 3, "allowBackwardLinks": false, "allowExternalLinks": false}`
+  `url` is required. `limit` (number, default: 3 from config), `allowBackwardLinks` (boolean, default: false from config), `allowExternalLinks` (boolean, default: false from config), and `timeout` (number) are optional.
+  Defaults can be configured in settings.json under `firecrawl_defaults.crawl_limit`, `firecrawl_defaults.crawl_allow_backward_links`, and `firecrawl_defaults.crawl_allow_external_links`.
 """.strip()
 
 TOOL_USAGE_RULES = """
@@ -100,7 +99,6 @@ Tool usage rules:
 
 
 def build_agent_prompt(role: AgentRole, language: LanguageCode) -> str:
-    target_language = LANGUAGE_NAMES[language]
     tools_list = ", ".join(AVAILABLE_TOOLS)
 
     if role == AgentRole.PROCESSOR:
@@ -121,7 +119,7 @@ Rules:
 - Never invent tool names. If none of those tools fit, ask the user instead.
 - Use the tool reference and tool usage rules below exactly.
 - The payload may include prior `tool_results` and `clarification_answers`. Use them before requesting another tool.
-- When producing a final answer, write in {target_language}.
+- ALWAYS respond in the same language the user used in their message. If the user writes in Spanish, respond in Spanish. If in English, respond in English. Match the user's language exactly.
 - Always respect the response schema exactly.
 
 {TOOL_GUIDANCE}
@@ -150,7 +148,7 @@ Rules:
 - Use the tool reference and tool usage rules below exactly.
 - The payload may include prior `tool_results` and `clarification_answers`. Use them before requesting another tool.
 - Prefer verifying the most important uncertainty first, not broad exploration.
-- When producing a final answer, write in {target_language}.
+- ALWAYS respond in the same language the user used in their message. If the user writes in Spanish, respond in Spanish. If in English, respond in English. Match the user's language exactly.
 - Always respect the response schema exactly.
 
 {TOOL_GUIDANCE}
@@ -158,7 +156,7 @@ Rules:
 {TOOL_USAGE_RULES}
 """.strip()
 
-    return f"""
+    return """
 You are the Orchestrator agent for TriadLLM.
 You interact with the user indirectly through the terminal UI.
 You receive the Processor output and the Validator review, then present a consolidated response.
@@ -167,7 +165,8 @@ Rules:
 - Treat the Processor output as the proposal and the Validator output as the validation or correction.
 - Be transparent about what each sub-agent said.
 - Preserve disagreements when they matter.
-- End with a clear synthesized recommendation in {target_language}.
+- End with a clear synthesized recommendation.
 - Keep the three sections distinct: primary answer, validation, synthesis.
+- ALWAYS write ALL sections (including the synthesis) in the same language the user used in their original message. If the user wrote in Spanish, ALL your output must be in Spanish. If in English, ALL in English. Never switch languages mid-response.
 - Always respect the response schema exactly.
 """.strip()

@@ -9,6 +9,7 @@ Usa exclusivamete endpoints v2 (no deprecated).
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -42,6 +43,7 @@ class FirecrawlClient:
 
     BASE_URL = "https://api.firecrawl.dev/v2"
     DEFAULT_TIMEOUT = 120.0  # 2 minutes
+    MAX_RETRIES = 3
 
     def __init__(self, api_key: str | None = None, timeout: float = DEFAULT_TIMEOUT) -> None:
         """Inicializar cliente Firecrawl.
@@ -62,7 +64,7 @@ class FirecrawlClient:
         self.timeout = timeout
         self._client: httpx.AsyncClient | None = None
 
-    async def __aenter__(self) -> "FirecrawlClient":
+    async def __aenter__(self) -> FirecrawlClient:
         await self._ensure_client()
         return self
 
@@ -100,24 +102,7 @@ class FirecrawlClient:
         remove_base64_images: bool | None = None,
         timeout: float | None = None,
     ) -> dict[str, Any]:
-        """Ejecutar scrape de una URL.
-
-        Args:
-            url: URL a scrappear.
-            formats: Formatos de salida (markdown, html, rawHtml, links, pdf).
-            only_main_content: Solo contenido principal (excluye header, footer, etc.).
-            wait_for: Tiempo de espera para JavaScript (ms).
-            include_tags: Tags HTML a incluir.
-            exclude_tags: Tags HTML a excluir.
-            remove_base64_images: Remover imágenes base64.
-            timeout: Timeout específico para esta operación.
-
-        Returns:
-            Resultado del scrape en formato dict.
-
-        Raises:
-            FirecrawlError: Si la operación falla.
-        """
+        """Ejecutar scrape de una URL."""
         payload: dict[str, Any] = {"url": url}
         if formats:
             payload["formats"] = formats
@@ -148,32 +133,9 @@ class FirecrawlClient:
         exclude_domains: list[str] | None = None,
         ignore_invalid_urls: bool | None = None,
         scrape_options: dict[str, Any] | None = None,
-        page_options: dict[str, Any] | None = None,
         timeout: float | None = None,
     ) -> dict[str, Any]:
-        """Ejecutar búsqueda web.
-
-        Args:
-            query: Consulta de búsqueda.
-            limit: Número máximo de resultados.
-            sources: Tipos de resultados (web, news, images).
-            categories: Categorías (github, research, pdf).
-            country: Código ISO de país.
-            location: Ubicación (ej: "San Francisco,California,United States").
-            tbs: Filtro temporal (ej: "qdr:m" para último mes).
-            include_domains: Dominios permitidos.
-            exclude_domains: Dominios excluidos.
-            ignore_invalid_urls: Ignorar URLs inválidos.
-            scrape_options: Opciones de scraping (formats, onlyMainContent, etc.).
-            page_options: Opciones de página (fetchContent, onlyMainContent, etc.).
-            timeout: Timeout específico para esta operación.
-
-        Returns:
-            Resultados de búsqueda en formato dict.
-
-        Raises:
-            FirecrawlError: Si la operación falla.
-        """
+        """Ejecutar búsqueda web."""
         payload: dict[str, Any] = {"query": query}
         if limit is not None:
             payload["limit"] = limit
@@ -197,8 +159,6 @@ class FirecrawlClient:
             payload["ignoreInvalidURLs"] = ignore_invalid_urls
         if scrape_options:
             payload["scrapeOptions"] = scrape_options
-        if page_options:
-            payload["pageOptions"] = page_options
 
         return await self._post("/search", payload, timeout=timeout)
 
@@ -210,21 +170,7 @@ class FirecrawlClient:
         include_subdomains: bool = False,
         timeout: float | None = None,
     ) -> dict[str, Any]:
-        """Mapear la estructura de un sitio web.
-
-        Args:
-            url: URL base para el mapeo.
-            search: Término de búsqueda para filtrar URLs.
-            limit: Número máximo de URLs a mapear.
-            include_subdomains: Incluir subdominios.
-            timeout: Timeout específico para esta operación.
-
-        Returns:
-            Mapa del sitio en formato dict.
-
-        Raises:
-            FirecrawlError: Si la operación falla.
-        """
+        """Mapear la estructura de un sitio web."""
         payload: dict[str, Any] = {"url": url}
         if search:
             payload["search"] = search
@@ -239,28 +185,14 @@ class FirecrawlClient:
         self,
         url: str,
         limit: int | None = None,
-        allow_subdomains: bool = False,
+        allow_backward_links: bool = False,
         allow_external_links: bool = False,
         timeout: float | None = None,
     ) -> dict[str, Any]:
-        """Crawlear un sitio web completo.
-
-        Args:
-            url: URL base para el crawl.
-            limit: Número máximo de páginas a crawlear.
-            allow_subdomains: Permitir subdominios.
-            allow_external_links: Permitir enlaces externos.
-            timeout: Timeout específico para esta operación.
-
-        Returns:
-            Resultados del crawl en formato dict.
-
-        Raises:
-            FirecrawlError: Si la operación falla.
-        """
+        """Crawlear un sitio web completo."""
         payload: dict[str, Any] = {
             "url": url,
-            "allowSubdomains": allow_subdomains,
+            "allowBackwardLinks": allow_backward_links,
             "allowExternalLinks": allow_external_links,
         }
         if limit is not None:
@@ -269,90 +201,85 @@ class FirecrawlClient:
         return await self._post("/crawl", payload, timeout=timeout)
 
     async def _post(self, endpoint: str, payload: dict[str, Any], timeout: float | None = None) -> dict[str, Any]:
-        """Ejecutar petición POST a la API de Firecrawl.
-
-        Args:
-            endpoint: Endpoint de la API (ej: /scrape).
-            payload: Carga útil en formato dict.
-            timeout: Timeout específico. Usa self.timeout si no se provee.
-
-        Returns:
-            Respuesta de la API en formato dict.
-
-        Raises:
-            FirecrawlError: Si la petición falla.
-        """
+        """Ejecutar petición POST con retry en 429."""
         client = await self._ensure_client()
         actual_timeout = timeout if timeout is not None else self.timeout
-
         url = f"{self.BASE_URL}{endpoint}"
 
         logger.debug(
             "firecrawl_api_request",
-            extra={
-                "endpoint": endpoint,
-                "url": url,
-                "payload_preview": json.dumps(payload)[:500],
-            },
+            extra={"endpoint": endpoint, "url": url, "payload_preview": json.dumps(payload)[:500]},
         )
 
-        try:
-            response = await client.post(
-                url,
-                json=payload,
-                timeout=actual_timeout,
-            )
+        for attempt in range(self.MAX_RETRIES):
+            try:
+                response = await client.post(url, json=payload, timeout=actual_timeout)
 
-            logger.debug(
-                "firecrawl_api_response",
-                extra={
-                    "endpoint": endpoint,
-                    "status_code": response.status_code,
-                    "response_preview": (response.text[:500] if response.text else "empty"),
-                },
-            )
-
-            if response.status_code >= 400:
-                error_body = self._safe_parse_json(response.text)
-                error_msg = error_body.get("error", error_body.get("message", response.text[:200]))
-                raise FirecrawlError(
-                    f"Firecrawl API error: {error_msg}",
-                    status_code=response.status_code,
-                    details={"endpoint": endpoint, "response": error_body},
+                logger.debug(
+                    "firecrawl_api_response",
+                    extra={
+                        "endpoint": endpoint,
+                        "status_code": response.status_code,
+                        "response_preview": (response.text[:500] if response.text else "empty"),
+                    },
                 )
 
-            return self._safe_parse_json(response.text)
+                if response.status_code == 429:
+                    wait = 2 ** (attempt + 1)
+                    logger.warning(
+                        "firecrawl_rate_limited",
+                        extra={"endpoint": endpoint, "attempt": attempt + 1, "wait_seconds": wait},
+                    )
+                    await asyncio.sleep(wait)
+                    continue
 
-        except httpx.TimeoutException as e:
-            logger.error("firecrawl_api_timeout", extra={"endpoint": endpoint, "error": str(e)})
-            raise FirecrawlError(
-                f"Firecrawl API request timed out: {e}",
-                status_code=408,
-                details={"endpoint": endpoint},
-            ) from e
-        except httpx.ConnectError as e:
-            logger.error("firecrawl_api_connect_error", extra={"endpoint": endpoint, "error": str(e)})
-            raise FirecrawlError(
-                f"Failed to connect to Firecrawl API: {e}",
-                status_code=502,
-                details={"endpoint": endpoint},
-            ) from e
-        except httpx.HTTPStatusError as e:
-            logger.error("firecrawl_api_http_error", extra={"endpoint": endpoint, "error": str(e)})
-            raise FirecrawlError(
-                f"Firecrawl API HTTP error: {e.response.status_code} - {e.response.text[:200]}",
-                status_code=e.response.status_code,
-                details={"endpoint": endpoint},
-            ) from e
-        except FirecrawlError:
-            # Re-raise FirecrawlError without modification
-            raise
-        except Exception as e:
-            logger.error("firecrawl_api_error", extra={"endpoint": endpoint, "error": str(e)})
-            raise FirecrawlError(
-                f"Firecrawl API error: {e}",
-                details={"endpoint": endpoint},
-            ) from e
+                if response.status_code >= 400:
+                    error_body = self._safe_parse_json(response.text)
+                    error_msg = error_body.get("error", error_body.get("message", response.text[:200]))
+                    raise FirecrawlError(
+                        f"Firecrawl API error: {error_msg}",
+                        status_code=response.status_code,
+                        details={"endpoint": endpoint, "response": error_body},
+                    )
+
+                return self._safe_parse_json(response.text)
+
+            except httpx.TimeoutException as e:
+                logger.error("firecrawl_api_timeout", extra={"endpoint": endpoint, "error": str(e)})
+                raise FirecrawlError(
+                    f"Firecrawl API request timed out: {e}",
+                    status_code=408,
+                    details={"endpoint": endpoint},
+                ) from e
+            except httpx.ConnectError as e:
+                logger.error("firecrawl_api_connect_error", extra={"endpoint": endpoint, "error": str(e)})
+                raise FirecrawlError(
+                    f"Failed to connect to Firecrawl API: {e}",
+                    status_code=502,
+                    details={"endpoint": endpoint},
+                ) from e
+            except httpx.HTTPStatusError as e:
+                logger.error("firecrawl_api_http_error", extra={"endpoint": endpoint, "error": str(e)})
+                raise FirecrawlError(
+                    f"Firecrawl API HTTP error: {e.response.status_code} - {e.response.text[:200]}",
+                    status_code=e.response.status_code,
+                    details={"endpoint": endpoint},
+                ) from e
+            except FirecrawlError:
+                raise
+            except Exception as e:
+                logger.error("firecrawl_api_error", extra={"endpoint": endpoint, "error": str(e)})
+                raise FirecrawlError(
+                    f"Firecrawl API error: {e}",
+                    details={"endpoint": endpoint},
+                ) from e
+
+        # All retries exhausted (only reached for 429s)
+        raise FirecrawlError(
+            f"Firecrawl API rate limited after {self.MAX_RETRIES} retries",
+            status_code=429,
+            details={"endpoint": endpoint},
+        )
 
     def _safe_parse_json(self, text: str) -> dict[str, Any]:
         """Parsear JSON de forma segura."""
